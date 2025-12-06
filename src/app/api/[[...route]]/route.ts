@@ -6,7 +6,11 @@ import db, { generateId, jsonParse } from '@/lib/db';
 import { Polar } from '@polar-sh/sdk';
 import { generateToken, verifyToken, hashPassword, verifyPassword, cookieOptions } from '@/lib/auth';
 
-const app = new Hono().basePath('/api');
+type Variables = {
+  user: { userId: string; email: string; role: string } | null;
+};
+
+const app = new Hono<{ Variables: Variables }>().basePath('/api');
 
 // Middleware
 app.use('*', cors({

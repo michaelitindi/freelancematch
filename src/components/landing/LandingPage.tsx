@@ -95,35 +95,37 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
               <br />
               Instantly
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-              Like Uber, but for digital services. Post your project and get matched with qualified freelancers in seconds—not days. Fair opportunity for all talent.
+            <p className="text-base text-muted-foreground max-w-xl mx-auto mb-8">
+              Like Uber, but for digital services. Post your project and get matched with qualified freelancers in seconds.
             </p>
             
-            {/* Project Input Box */}
-            <div className="max-w-2xl mx-auto mb-10">
-              <div className="relative">
-                <div className="flex gap-3">
+            {/* Project Input Box - ChatGPT Style */}
+            <div className="max-w-4xl mx-auto mb-10">
+              <div className="relative bg-white rounded-2xl shadow-lg border border-[#1A2B4A]/10 p-2">
+                <div className="flex items-end gap-2">
                   <div className="relative flex-1">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                    <Input
-                      placeholder="Describe what you need help with... (e.g., 'I need a logo design for my startup')"
+                    <textarea
+                      placeholder="What do you need help with today? Describe your project..."
                       value={projectDescription}
                       onChange={(e) => setProjectDescription(e.target.value)}
-                      className="pl-12 h-14 text-lg border-2 border-[#1A2B4A]/20 focus:border-[#00B8A9] rounded-xl"
+                      rows={3}
+                      className="w-full resize-none px-4 py-3 text-base border-0 focus:outline-none focus:ring-0 rounded-xl bg-transparent placeholder:text-muted-foreground/60"
                     />
                   </div>
                   <Button
                     size="lg"
-                    className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white px-8 h-14 text-lg rounded-xl"
+                    className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white h-12 w-12 rounded-xl flex-shrink-0 mb-1"
                     onClick={handleGetMatched}
                   >
-                    Get Matched
-                    <ArrowRight className="h-5 w-5 ml-2" />
+                    <ArrowRight className="h-5 w-5" />
                   </Button>
                 </div>
-                <p className="text-sm text-muted-foreground mt-3">
-                  Popular: Web Development • UI/UX Design • Mobile Apps • Content Writing • Marketing
-                </p>
+                <div className="flex items-center justify-between px-4 py-2 border-t border-[#1A2B4A]/5">
+                  <p className="text-xs text-muted-foreground">
+                    Popular: Web Development • UI/UX Design • Mobile Apps • Content Writing
+                  </p>
+                  <span className="text-xs text-[#00B8A9] font-medium">Get matched instantly</span>
+                </div>
               </div>
             </div>
 
