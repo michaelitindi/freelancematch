@@ -8,8 +8,10 @@ export interface User {
   avatar?: string;
   role: UserRole;
   createdAt: Date;
-  kycStatus?: 'pending' | 'approved' | 'rejected';
+  kycStatus?: 'pending' | 'approved' | 'rejected' | 'not_started';
+  kyc_status?: 'pending' | 'approved' | 'rejected' | 'not_started';
   isOnline?: boolean;
+  is_online?: number;
   rating?: number;
   totalJobs?: number;
   categories?: string[];

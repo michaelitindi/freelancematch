@@ -9,7 +9,9 @@ import {
   Briefcase, 
   ArrowUpRight,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle,
+  Shield
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -63,6 +65,39 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
 
   return (
     <div className="space-y-8">
+      {/* KYC Verification Banner */}
+      {currentUser?.kyc_status !== 'approved' && (
+        <Card className="border-[#F6A623] bg-[#F6A623]/5">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-[#F6A623]/10">
+                  <Shield className="h-5 w-5 text-[#F6A623]" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[#1A2B4A] flex items-center gap-2">
+                    Complete Identity Verification
+                    <Badge variant="outline" className="border-[#F6A623] text-[#F6A623] text-xs">
+                      Required
+                    </Badge>
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Verify your identity to unlock all features, receive payments, and build trust with clients.
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => onNavigate('kyc')}
+                className="bg-[#F6A623] hover:bg-[#E59612] text-white shrink-0"
+              >
+                <AlertTriangle className="h-4 w-4 mr-2" />
+                Complete KYC
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

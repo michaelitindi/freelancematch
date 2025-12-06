@@ -193,6 +193,16 @@ app.post('/auth/refresh', async (c) => {
 
 // ============ USER ROUTES ============
 
+// List all users (for debugging)
+app.get('/users', (c) => {
+  const users = db.prepare(`
+    SELECT id, email, name, role, avatar, bio, kyc_status, is_online, created_at
+    FROM users
+  `).all();
+  
+  return c.json(users);
+});
+
 app.get('/users/:id', (c) => {
   const id = c.req.param('id');
   const user = db.prepare(`

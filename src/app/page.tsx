@@ -65,13 +65,9 @@ function AppContent() {
   const handleAuthComplete = (role: UserRole) => {
     switchRole(role);
     setShowAuth(false);
-    if (role === 'freelancer') {
-      setShowKYC(true);
-    } else {
-      // If buyer had entered a project description, navigate to post-request
-      if (initialProjectDescription && role === 'buyer') {
-        setCurrentView('post-request');
-      }
+    // If buyer had entered a project description, navigate to post-request
+    if (initialProjectDescription && role === 'buyer') {
+      setCurrentView('post-request');
     }
   };
 

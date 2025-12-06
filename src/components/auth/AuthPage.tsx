@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Zap, ArrowRight, Briefcase, User, CheckCircle } from 'lucide-react';
+import { Zap, ArrowRight, Briefcase, User, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useApp } from '@/contexts/AppContext';
 import type { UserRole } from '@/types';
 
 interface AuthPageProps {
@@ -15,9 +16,12 @@ interface AuthPageProps {
 }
 
 export function AuthPage({ onComplete }: AuthPageProps) {
+  const { login, register } = useApp();
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -27,6 +31,7 @@ export function AuthPage({ onComplete }: AuthPageProps) {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setError(null);
   };
 
   const handleRoleSelect = (role: UserRole) => {
@@ -34,19 +39,52 @@ export function AuthPage({ onComplete }: AuthPageProps) {
     setStep(2);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (authMode === 'login') {
-      // Simulate login
-      onComplete(selectedRole || 'freelancer');
-    } else {
-      // Move to onboarding
-      setStep(3);
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      if (authMode === 'login') {
+        const success = await login(formData.email, formData.password);
+        if (success) {
+          onComplete(selectedRole || 'freelancer');
+        } else {
+          setError('Invalid email or password');
+        }
+      } else {
+        // Move to onboarding
+        setStep(3);
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleOnboardingComplete = () => {
-    onComplete(selectedRole || 'freelancer');
+  const handleOnboardingComplete = async () => {
+    setError(null);
+    setIsLoading(true);
+    
+    try {
+      const success = await register(
+        formData.email,
+        formData.password,
+        formData.name,
+        selectedRole || 'freelancer'
+      );
+      
+      if (success) {
+        onComplete(selectedRole || 'freelancer');
+      } else {
+        setError('Registration failed. Email may already be in use.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -90,6 +128,11 @@ export function AuthPage({ onComplete }: AuthPageProps) {
 
             <TabsContent value="login">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                    {error}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <Input
@@ -114,9 +157,18 @@ export function AuthPage({ onComplete }: AuthPageProps) {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full bg-[#1A2B4A] hover:bg-[#1A2B4A]/90">
-                  Sign In
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Button type="submit" className="w-full bg-[#1A2B4A] hover:bg-[#1A2B4A]/90" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               </form>
             </TabsContent>
@@ -237,6 +289,8 @@ export function AuthPage({ onComplete }: AuthPageProps) {
                   role={selectedRole!}
                   onComplete={handleOnboardingComplete}
                   onBack={() => setStep(2)}
+                  isLoading={isLoading}
+                  error={error}
                 />
               )}
             </TabsContent>
@@ -289,9 +343,11 @@ interface OnboardingStepProps {
   role: UserRole;
   onComplete: () => void;
   onBack: () => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-function OnboardingStep({ role, onComplete, onBack }: OnboardingStepProps) {
+function OnboardingStep({ role, onComplete, onBack, isLoading, error }: OnboardingStepProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -419,17 +475,36 @@ function OnboardingStep({ role, onComplete, onBack }: OnboardingStepProps) {
       </div>
 
       {/* Navigation */}
+      {error && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
       <div className="flex gap-2">
-        <Button variant="outline" onClick={handlePrev}>
+        <Button variant="outline" onClick={handlePrev} disabled={isLoading}>
           Back
         </Button>
         <Button
           className="flex-1 bg-[#1A2B4A] hover:bg-[#1A2B4A]/90"
           onClick={handleNext}
-          disabled={!answers[currentQuestion.id]}
+          disabled={!answers[currentQuestion.id] || isLoading}
         >
-          {currentStep < questions.length - 1 ? 'Continue' : 'Complete Setup'}
-          <ArrowRight className="ml-2 h-4 w-4" />
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Creating Account...
+            </>
+          ) : currentStep < questions.length - 1 ? (
+            <>
+              Continue
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          ) : (
+            <>
+              Complete Setup
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>
