@@ -770,9 +770,9 @@ app.post('/payments/checkout', async (c) => {
   const { projectId, milestoneId, amount, buyerId } = await c.req.json();
   
   try {
-    const checkout = await polar.checkouts.create({
+    const checkout = await polar.checkouts.custom.create({
       productPriceId: process.env.POLAR_PRODUCT_PRICE_ID!,
-      successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/workspace?success=true`,
+      successUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'https://45bd3b33-5536-42bd-b6b1-84883acb7ee9.canvases.tempo.build'}/workspace?success=true`,
       metadata: {
         projectId,
         milestoneId,
