@@ -217,7 +217,11 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
               const progress = (completedMilestones / project.milestones.length) * 100;
               
               return (
-                <div key={project.id} className="p-4 rounded-lg border bg-card">
+                <div 
+                  key={project.id} 
+                  className="p-4 rounded-lg border bg-card hover:border-[#00B8A9]/50 transition-colors cursor-pointer"
+                  onClick={() => onNavigate('workspace')}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h4 className="font-semibold">{project.title}</h4>
@@ -245,6 +249,13 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
                 </div>
               );
             })}
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => onNavigate('workspace')}
+            >
+              Open Project Workspace
+            </Button>
           </CardContent>
         </Card>
 

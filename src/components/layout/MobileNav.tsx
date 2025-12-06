@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Home, Zap, MessageSquare, User, BookOpen } from 'lucide-react';
+import { Home, Zap, MessageSquare, User, Wallet } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { cn } from '@/lib/utils';
 
@@ -25,7 +25,7 @@ export function MobileNav({ onNavigate, currentView }: MobileNavProps) {
       badge: currentRole === 'freelancer' ? pendingMatchCount : 0,
     },
     { id: 'messages', label: 'Messages', icon: MessageSquare, badge: unreadMessages },
-    { id: 'courses', label: 'Learn', icon: BookOpen },
+    { id: 'payments', label: 'Payments', icon: Wallet },
     { id: 'profile', label: 'Profile', icon: User },
   ];
 

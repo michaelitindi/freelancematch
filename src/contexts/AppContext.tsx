@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { User, UserRole, Match, MatchRequest, Conversation, Activity } from '@/types';
 import {
   mockFreelancers,
@@ -10,6 +10,7 @@ import {
   mockConversations,
   mockActivities,
 } from '@/lib/mock-data';
+import api from '@/lib/api-client';
 
 interface AppState {
   // User state
@@ -49,6 +50,14 @@ interface AppContextType extends AppState {
   
   // Demo actions
   simulateMatch: () => void;
+  
+  // API actions
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (email: string, password: string, name: string, role: UserRole) => Promise<boolean>;
+  logout: () => void;
+  refreshActivities: () => Promise<void>;
+  refreshMatches: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -58,6 +67,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(mockFreelancers[0]);
   const [currentRole, setCurrentRole] = useState<UserRole>('freelancer');
   const [isOnline, setIsOnline] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   
   const [pendingMatches, setPendingMatches] = useState<Match[]>(mockMatches);
   const [activeMatches, setActiveMatches] = useState<Match[]>([]);
@@ -69,6 +79,96 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [showMatchNotification, setShowMatchNotification] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
 
+  // API-based login
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const result = await api.auth.login({ email, password }) as any;
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setCurrentRole(result.user.role);
+        setIsOnline(result.user.is_online === 1);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // API-based register
+  const register = useCallback(async (email: string, password: string, name: string, role: UserRole): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      const result = await api.auth.register({ email, password, name, role }) as any;
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setCurrentRole(result.user.role);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Registration failed:', error);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    setCurrentUser(null);
+    setCurrentRole('freelancer');
+    setIsOnline(false);
+    setPendingMatches([]);
+    setActiveMatches([]);
+    setActivities([]);
+  }, []);
+
+  // Refresh activities from API
+  const refreshActivities = useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      const result = await api.activities.list(currentUser.id) as Activity[];
+      setActivities(result);
+    } catch (error) {
+      console.error('Failed to refresh activities:', error);
+    }
+  }, [currentUser?.id]);
+
+  // Refresh matches from API
+  const refreshMatches = useCallback(async () => {
+    if (!currentUser?.id || currentRole !== 'freelancer') return;
+    try {
+      const result = await api.matches.list({ freelancerId: currentUser.id, status: 'pending' }) as any[];
+      const formattedMatches: Match[] = result.map(m => ({
+        id: m.id,
+        requestId: m.project_id,
+        freelancerId: m.freelancer_id,
+        freelancerName: currentUser.name,
+        freelancerAvatar: currentUser.avatar,
+        freelancerRating: currentUser.rating || 0,
+        buyerId: m.buyer_id,
+        buyerName: m.buyer_name,
+        buyerAvatar: m.buyer_avatar,
+        category: m.category,
+        description: m.project_description,
+        matchReason: {
+          categoryFit: m.category_fit,
+          availability: m.availability_score,
+          ratingTier: m.rating_score,
+        },
+        status: m.status,
+        createdAt: new Date(m.created_at),
+      }));
+      setPendingMatches(formattedMatches);
+    } catch (error) {
+      console.error('Failed to refresh matches:', error);
+    }
+  }, [currentUser, currentRole]);
+
   const switchRole = useCallback((role: UserRole) => {
     setCurrentRole(role);
     if (role === 'freelancer') {
@@ -78,11 +178,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toggleOnlineStatus = useCallback(() => {
-    setIsOnline(prev => !prev);
-  }, []);
+  const toggleOnlineStatus = useCallback(async () => {
+    const newStatus = !isOnline;
+    setIsOnline(newStatus);
+    
+    // Update via API if user is logged in
+    if (currentUser?.id) {
+      try {
+        await api.users.setAvailability(currentUser.id, newStatus);
+      } catch (error) {
+        console.error('Failed to update availability:', error);
+      }
+    }
+  }, [isOnline, currentUser?.id]);
 
-  const acceptMatch = useCallback((matchId: string) => {
+  const acceptMatch = useCallback(async (matchId: string) => {
+    // Update via API
+    try {
+      await api.matches.respond(matchId, 'accepted');
+    } catch (error) {
+      console.error('Failed to accept match:', error);
+    }
+    
     setPendingMatches(prev => {
       const match = prev.find(m => m.id === matchId);
       if (match) {
@@ -103,13 +220,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentMatch(null);
   }, []);
 
-  const declineMatch = useCallback((matchId: string) => {
+  const declineMatch = useCallback(async (matchId: string) => {
+    // Update via API
+    try {
+      await api.matches.respond(matchId, 'declined');
+    } catch (error) {
+      console.error('Failed to decline match:', error);
+    }
+    
     setPendingMatches(prev => prev.filter(m => m.id !== matchId));
     setShowMatchNotification(false);
     setCurrentMatch(null);
   }, []);
 
-  const createMatchRequest = useCallback((request: Omit<MatchRequest, 'id' | 'createdAt' | 'status'>) => {
+  const createMatchRequest = useCallback(async (request: Omit<MatchRequest, 'id' | 'createdAt' | 'status'>) => {
+    // Create project via API if user is logged in
+    if (currentUser?.id) {
+      try {
+        await api.projects.create({
+          buyerId: currentUser.id,
+          title: request.title,
+          description: request.description,
+          category: request.category,
+          budget: request.budget,
+        });
+      } catch (error) {
+        console.error('Failed to create project:', error);
+      }
+    }
+    
     const newRequest: MatchRequest = {
       ...request,
       id: `mr${Date.now()}`,
@@ -126,7 +265,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       description: `Your request for ${request.category} has been submitted`,
       timestamp: new Date(),
     }, ...acts]);
-  }, []);
+  }, [currentUser?.id]);
 
   const dismissMatchNotification = useCallback(() => {
     setShowMatchNotification(false);
@@ -181,6 +320,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     createMatchRequest,
     dismissMatchNotification,
     simulateMatch,
+    login,
+    register,
+    logout,
+    refreshActivities,
+    refreshMatches,
+    isLoading,
   };
 
   return (

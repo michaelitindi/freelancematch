@@ -96,6 +96,13 @@ export function Header({ onNavigate, currentView }: HeaderProps) {
           >
             Courses
           </Button>
+          <Button
+            variant={currentView === 'payments' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => onNavigate('payments')}
+          >
+            Payments
+          </Button>
         </nav>
 
         {/* Right side */}

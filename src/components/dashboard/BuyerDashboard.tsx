@@ -176,7 +176,11 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
               const freelancer = mockFreelancers.find(f => f.id === project.freelancerId);
               
               return (
-                <div key={project.id} className="p-4 rounded-lg border bg-card">
+                <div 
+                  key={project.id} 
+                  className="p-4 rounded-lg border bg-card hover:border-[#00B8A9]/50 transition-colors cursor-pointer"
+                  onClick={() => onNavigate('workspace')}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-10 w-10">
@@ -210,6 +214,13 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
                 </div>
               );
             })}
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => onNavigate('workspace')}
+            >
+              Open Project Workspace
+            </Button>
           </CardContent>
         </Card>
 
