@@ -81,21 +81,21 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-4">
+      <section className="pt-24 pb-16 px-4">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-12">
             <Badge className="bg-[#00B8A9]/10 text-[#00B8A9] mb-6 px-4 py-2">
               <Zap className="h-4 w-4 mr-2" />
               Instant Matching • Fair Distribution • Quality Guaranteed
             </Badge>
-            <h1 className="text-5xl md:text-7xl font-bold text-[#1A2B4A] mb-6 leading-tight">
+            <h1 className="text-4xl md:text-6xl font-bold text-[#1A2B4A] mb-4 leading-tight">
               Get Matched with
               <br />
               <span className="text-[#00B8A9]">Top Freelancers</span>
               <br />
               Instantly
             </h1>
-            <p className="text-base text-muted-foreground max-w-xl mx-auto mb-8">
+            <p className="text-base text-muted-foreground max-w-xl mx-auto mb-6">
               Like Uber, but for digital services. Post your project and get matched with qualified freelancers in seconds.
             </p>
             
@@ -114,9 +114,10 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
                   </div>
                   <Button
                     size="lg"
-                    className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white h-12 w-12 rounded-xl flex-shrink-0 mb-1"
+                    className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white h-12 px-4 rounded-xl flex-shrink-0 mb-1 gap-2"
                     onClick={handleGetMatched}
                   >
+                    Get Matched
                     <ArrowRight className="h-5 w-5" />
                   </Button>
                 </div>
