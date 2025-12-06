@@ -129,15 +129,15 @@ export function ActivityFeed({
                     </div>
                     {activity.metadata && (
                       <div className="flex items-center gap-2 mt-2">
-                        {activity.metadata.amount && (
+                        {activity.metadata.amount !== undefined && (
                           <Badge variant="secondary" className="text-xs">
-                            ${(activity.metadata.amount as number).toLocaleString()}
+                            {`$${(Number(activity.metadata.amount)).toLocaleString()}`}
                           </Badge>
                         )}
-                        {activity.metadata.rating && (
+                        {activity.metadata.rating !== undefined && (
                           <Badge variant="secondary" className="text-xs">
                             <Star className="h-3 w-3 mr-1 fill-[#F6A623] text-[#F6A623]" />
-                            {activity.metadata.rating as number}
+                            {Number(activity.metadata.rating)}
                           </Badge>
                         )}
                       </div>

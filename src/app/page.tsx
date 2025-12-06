@@ -153,7 +153,7 @@ function AppContent() {
             description="Select a project to view workspace"
             freelancer={{ id: '', name: '', avatar: '' }}
             buyer={{ id: '', name: '', avatar: '' }}
-            status="pending"
+            status="in_progress"
             milestones={[]}
             deliverables={[]}
             totalBudget={0}

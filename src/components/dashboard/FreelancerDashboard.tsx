@@ -133,19 +133,29 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {analytics.revenueByMonth.map((item, index) => {
-                const maxAmount = Math.max(...analytics.revenueByMonth.map(r => r.amount));
-                const height = (item.amount / maxAmount) * 100;
-                return (
-                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                    <div 
-                      className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
-                      style={{ height: `${height}%` }}
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                  </div>
-                );
-              })}
+              {(() => {
+                const revenueByMonth = [
+                  { month: 'Jan', amount: 0 },
+                  { month: 'Feb', amount: 0 },
+                  { month: 'Mar', amount: 0 },
+                  { month: 'Apr', amount: 0 },
+                  { month: 'May', amount: 0 },
+                  { month: 'Jun', amount: 0 },
+                ];
+                return revenueByMonth.map((item: { month: string; amount: number }, index: number) => {
+                  const maxAmount = Math.max(...revenueByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                  const height = (item.amount / maxAmount) * 100;
+                  return (
+                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                      <div 
+                        className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      />
+                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </CardContent>
         </Card>

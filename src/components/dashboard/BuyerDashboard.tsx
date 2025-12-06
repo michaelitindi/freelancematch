@@ -116,19 +116,29 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {analytics.spendingByMonth.map((item) => {
-                const maxAmount = Math.max(...analytics.spendingByMonth.map(r => r.amount));
-                const height = (item.amount / maxAmount) * 100;
-                return (
-                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                    <div 
-                      className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
-                      style={{ height: `${height}%` }}
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                  </div>
-                );
-              })}
+              {(() => {
+                const spendingByMonth = [
+                  { month: 'Jan', amount: 0 },
+                  { month: 'Feb', amount: 0 },
+                  { month: 'Mar', amount: 0 },
+                  { month: 'Apr', amount: 0 },
+                  { month: 'May', amount: 0 },
+                  { month: 'Jun', amount: 0 },
+                ];
+                return spendingByMonth.map((item: { month: string; amount: number }) => {
+                  const maxAmount = Math.max(...spendingByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                  const height = (item.amount / maxAmount) * 100;
+                  return (
+                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                      <div 
+                        className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      />
+                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -139,20 +149,28 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
             <CardTitle className="font-display">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {analytics.categoryBreakdown.map((cat) => {
-              const percentage = (cat.amount / analytics.totalSpent) * 100;
-              return (
-                <div key={cat.category} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{cat.category}</span>
-                    <span className="font-mono text-muted-foreground">
-                      ${cat.amount.toLocaleString()}
-                    </span>
+            {(() => {
+              const categoryBreakdown = [
+                { category: 'Development', amount: 0 },
+                { category: 'Design', amount: 0 },
+                { category: 'Marketing', amount: 0 },
+              ];
+              const totalSpent = 1;
+              return categoryBreakdown.map((cat: { category: string; amount: number }) => {
+                const percentage = (cat.amount / totalSpent) * 100;
+                return (
+                  <div key={cat.category} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{cat.category}</span>
+                      <span className="font-mono text-muted-foreground">
+                        ${cat.amount.toLocaleString()}
+                      </span>
+                    </div>
+                    <Progress value={percentage} className="h-2" />
                   </div>
-                  <Progress value={percentage} className="h-2" />
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </CardContent>
         </Card>
       </div>

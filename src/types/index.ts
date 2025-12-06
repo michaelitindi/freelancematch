@@ -24,6 +24,7 @@ export interface MatchRequest {
   buyerId: string;
   buyerName: string;
   buyerAvatar?: string;
+  title: string;
   category: string;
   description: string;
   budget?: number;

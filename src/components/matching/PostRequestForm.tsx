@@ -73,6 +73,7 @@ export function PostRequestForm({ onNavigate }: PostRequestFormProps) {
       buyerId: currentUser?.id || 'b1',
       buyerName: currentUser?.name || 'Buyer',
       buyerAvatar: currentUser?.avatar,
+      title: description.slice(0, 50),
       category,
       description,
       budget: budget ? parseFloat(budget) : undefined,

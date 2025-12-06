@@ -286,7 +286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           title: request.title,
           description: request.description,
           category: request.category,
-          budget: request.budget,
+          budget: request.budget || 0,
         });
       } catch (error) {
         console.error('Failed to create project:', error);

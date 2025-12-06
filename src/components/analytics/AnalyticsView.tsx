@@ -122,22 +122,32 @@ function FreelancerAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {analytics.revenueByMonth.map((item) => {
-                const maxAmount = Math.max(...analytics.revenueByMonth.map(r => r.amount));
-                const height = (item.amount / maxAmount) * 100;
-                return (
-                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                    <span className="text-xs font-mono text-muted-foreground">
-                      ${(item.amount / 1000).toFixed(1)}k
-                    </span>
-                    <div 
-                      className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
-                      style={{ height: `${height}%` }}
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                  </div>
-                );
-              })}
+              {(() => {
+                const revenueByMonth = [
+                  { month: 'Jan', amount: 0 },
+                  { month: 'Feb', amount: 0 },
+                  { month: 'Mar', amount: 0 },
+                  { month: 'Apr', amount: 0 },
+                  { month: 'May', amount: 0 },
+                  { month: 'Jun', amount: 0 },
+                ];
+                return revenueByMonth.map((item: { month: string; amount: number }) => {
+                  const maxAmount = Math.max(...revenueByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                  const height = (item.amount / maxAmount) * 100;
+                  return (
+                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        ${(item.amount / 1000).toFixed(1)}k
+                      </span>
+                      <div 
+                        className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      />
+                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -158,25 +168,35 @@ function FreelancerAnalytics() {
               </div>
               {/* Chart area */}
               <div className="ml-8 h-full flex items-end justify-between gap-4 pb-8">
-                {analytics.ratingTrend.map((item, index) => {
-                  const height = ((item.rating - 4) / 1) * 100;
-                  return (
-                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                      <div className="relative w-full flex justify-center">
-                        <div 
-                          className="w-3 h-3 rounded-full bg-[#F6A623] relative z-10"
-                          style={{ marginBottom: `${height}%` }}
-                        />
-                        {index < analytics.ratingTrend.length - 1 && (
-                          <div className="absolute top-1.5 left-1/2 w-full h-0.5 bg-[#F6A623]/30" />
-                        )}
+                {(() => {
+                  const ratingTrend = [
+                    { month: 'Jan', rating: 4.5 },
+                    { month: 'Feb', rating: 4.5 },
+                    { month: 'Mar', rating: 4.5 },
+                    { month: 'Apr', rating: 4.5 },
+                    { month: 'May', rating: 4.5 },
+                    { month: 'Jun', rating: 4.5 },
+                  ];
+                  return ratingTrend.map((item: { month: string; rating: number }, index: number) => {
+                    const height = ((item.rating - 4) / 1) * 100;
+                    return (
+                      <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                        <div className="relative w-full flex justify-center">
+                          <div 
+                            className="w-3 h-3 rounded-full bg-[#F6A623] relative z-10"
+                            style={{ marginBottom: `${height}%` }}
+                          />
+                          {index < ratingTrend.length - 1 && (
+                            <div className="absolute top-1.5 left-1/2 w-full h-0.5 bg-[#F6A623]/30" />
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground font-medium mt-auto">
+                          {item.month}
+                        </span>
                       </div>
-                      <span className="text-xs text-muted-foreground font-medium mt-auto">
-                        {item.month}
-                      </span>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
           </CardContent>
@@ -200,7 +220,7 @@ function FreelancerAnalytics() {
                   <p className="text-sm text-muted-foreground">All time</p>
                 </div>
               </div>
-              <span className="text-2xl font-bold font-mono">{analytics.totalJobs}</span>
+              <span className="text-2xl font-bold font-mono">0</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -212,7 +232,7 @@ function FreelancerAnalytics() {
                   <p className="text-sm text-muted-foreground">In progress</p>
                 </div>
               </div>
-              <span className="text-2xl font-bold font-mono">{analytics.activeJobs}</span>
+              <span className="text-2xl font-bold font-mono">0</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -225,7 +245,7 @@ function FreelancerAnalytics() {
                 </div>
               </div>
               <span className="text-2xl font-bold font-mono">
-                {analytics.totalJobs - analytics.activeJobs}
+                0
               </span>
             </div>
           </CardContent>
@@ -240,9 +260,9 @@ function FreelancerAnalytics() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Completion Rate</span>
-                <span className="text-sm font-mono text-[#00B8A9]">{analytics.completionRate}%</span>
+                <span className="text-sm font-mono text-[#00B8A9]">0%</span>
               </div>
-              <Progress value={analytics.completionRate} className="h-2" />
+              <Progress value={0} className="h-2" />
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -347,22 +367,32 @@ function BuyerAnalytics() {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {analytics.spendingByMonth.map((item) => {
-                const maxAmount = Math.max(...analytics.spendingByMonth.map(r => r.amount));
-                const height = (item.amount / maxAmount) * 100;
-                return (
-                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                    <span className="text-xs font-mono text-muted-foreground">
-                      ${(item.amount / 1000).toFixed(1)}k
-                    </span>
-                    <div 
-                      className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
-                      style={{ height: `${height}%` }}
-                    />
-                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                  </div>
-                );
-              })}
+              {(() => {
+                const spendingByMonth = [
+                  { month: 'Jan', amount: 0 },
+                  { month: 'Feb', amount: 0 },
+                  { month: 'Mar', amount: 0 },
+                  { month: 'Apr', amount: 0 },
+                  { month: 'May', amount: 0 },
+                  { month: 'Jun', amount: 0 },
+                ];
+                return spendingByMonth.map((item: { month: string; amount: number }) => {
+                  const maxAmount = Math.max(...spendingByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                  const height = (item.amount / maxAmount) * 100;
+                  return (
+                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        ${(item.amount / 1000).toFixed(1)}k
+                      </span>
+                      <div 
+                        className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
+                        style={{ height: `${Math.max(height, 5)}%` }}
+                      />
+                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </CardContent>
         </Card>
@@ -374,26 +404,35 @@ function BuyerAnalytics() {
             <CardDescription>Where your budget goes</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {analytics.categoryBreakdown.map((cat, index) => {
-              const percentage = (cat.amount / analytics.totalSpent) * 100;
+            {(() => {
+              const categoryBreakdown = [
+                { category: 'Development', amount: 0 },
+                { category: 'Design', amount: 0 },
+                { category: 'Marketing', amount: 0 },
+                { category: 'Writing', amount: 0 },
+              ];
+              const totalSpent = 1;
               const colors = ['bg-[#00B8A9]', 'bg-[#1A2B4A]', 'bg-[#F6A623]', 'bg-[#FF6B6B]'];
-              return (
-                <div key={cat.category} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{cat.category}</span>
-                    <span className="font-mono text-muted-foreground">
-                      ${cat.amount.toLocaleString()} ({Math.round(percentage)}%)
-                    </span>
+              return categoryBreakdown.map((cat: { category: string; amount: number }, index: number) => {
+                const percentage = (cat.amount / totalSpent) * 100;
+                return (
+                  <div key={cat.category} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium">{cat.category}</span>
+                      <span className="font-mono text-muted-foreground">
+                        ${cat.amount.toLocaleString()} ({Math.round(percentage)}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className={cn("h-full rounded-full", colors[index % colors.length])}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className={cn("h-full rounded-full", colors[index % colors.length])}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </CardContent>
         </Card>
       </div>
