@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockCourses } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import type { Course } from '@/types';
 
@@ -34,9 +33,10 @@ export function CoursesView() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
-  const categories = Array.from(new Set(mockCourses.map(c => c.category)));
+  const courses: Course[] = [];
+  const categories: string[] = [];
 
-  const filteredCourses = mockCourses.filter(course => {
+  const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.description.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;

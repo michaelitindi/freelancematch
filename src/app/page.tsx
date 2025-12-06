@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from '@/contexts/AppContext';
 import { Header } from '@/components/layout/Header';
 import { MobileNav } from '@/components/layout/MobileNav';
@@ -20,85 +20,32 @@ import { ProjectWorkspace } from '@/components/workspace/ProjectWorkspace';
 import { LandingPage } from '@/components/landing/LandingPage';
 import type { UserRole } from '@/types';
 
-// Mock transaction data
-const mockTransactions = [
-  {
-    id: 't1',
-    type: 'payout' as const,
-    amount: 2500,
-    fee: 75,
-    status: 'completed' as const,
-    description: 'Payment for Dashboard Redesign',
-    projectTitle: 'Dashboard Redesign',
-    counterparty: 'TechStartup Inc.',
-    date: new Date('2024-01-15'),
-    paymentMethod: 'Bank Transfer',
-  },
-  {
-    id: 't2',
-    type: 'payout' as const,
-    amount: 1200,
-    fee: 36,
-    status: 'pending' as const,
-    description: 'Payment for Mobile App UI',
-    projectTitle: 'Mobile App UI',
-    counterparty: 'Creative Co.',
-    date: new Date('2024-01-20'),
-    paymentMethod: 'Bank Transfer',
-  },
-  {
-    id: 't3',
-    type: 'fee' as const,
-    amount: 111,
-    status: 'completed' as const,
-    description: 'Platform service fee',
-    date: new Date('2024-01-15'),
-  },
-];
-
-// Mock project data
-const mockProject = {
-  projectId: 'p1',
-  projectTitle: 'E-commerce Dashboard Redesign',
-  description: 'Complete redesign of the admin dashboard with modern UI/UX patterns and real-time analytics.',
-  freelancer: {
-    id: 'f1',
-    name: 'Sarah Chen',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80',
-  },
-  buyer: {
-    id: 'b1',
-    name: 'TechStartup Inc.',
-    avatar: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=150&q=80',
-  },
-  status: 'in_progress' as const,
-  milestones: [
-    { id: 'm1', title: 'Initial Design Phase', amount: 1500, status: 'paid' as const, dueDate: new Date('2024-01-10') },
-    { id: 'm2', title: 'Development Phase', amount: 2500, status: 'in_progress' as const, dueDate: new Date('2024-01-25') },
-    { id: 'm3', title: 'Testing & Launch', amount: 1000, status: 'pending' as const, dueDate: new Date('2024-02-05') },
-  ],
-  deliverables: [
-    { id: 'd1', name: 'Homepage Design v2.pdf', type: 'pdf', size: '2.4 MB', uploadedAt: new Date('2024-01-18'), status: 'approved' as const, version: 2 },
-    { id: 'd2', name: 'Dashboard Components.fig', type: 'figma', size: '15.2 MB', uploadedAt: new Date('2024-01-20'), status: 'pending_review' as const, version: 1 },
-  ],
-  totalBudget: 5000,
-};
-
 function AppContent() {
   const [currentView, setCurrentView] = useState('dashboard');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
   const [showKYC, setShowKYC] = useState(false);
   const [initialRole, setInitialRole] = useState<UserRole>('freelancer');
-  const { currentRole, switchRole } = useApp();
+  const [initialProjectDescription, setInitialProjectDescription] = useState('');
+  const { currentRole, switchRole, currentUser, isSessionChecked, logout } = useApp();
+
+  // Check if user is already authenticated on mount
+  useEffect(() => {
+    if (isSessionChecked && currentUser) {
+      setShowLanding(false);
+      setShowAuth(false);
+    }
+  }, [isSessionChecked, currentUser]);
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
   };
 
-  const handleGetStarted = (role: UserRole) => {
+  const handleGetStarted = (role: UserRole, projectDescription?: string) => {
     setInitialRole(role);
+    if (projectDescription) {
+      setInitialProjectDescription(projectDescription);
+    }
     setShowLanding(false);
     setShowAuth(true);
   };
@@ -108,23 +55,41 @@ function AppContent() {
     setShowAuth(true);
   };
 
+  const handleLogout = async () => {
+    await logout();
+    setShowLanding(true);
+    setShowAuth(false);
+    setShowKYC(false);
+  };
+
   const handleAuthComplete = (role: UserRole) => {
     switchRole(role);
     setShowAuth(false);
     if (role === 'freelancer') {
       setShowKYC(true);
     } else {
-      setIsAuthenticated(true);
+      // If buyer had entered a project description, navigate to post-request
+      if (initialProjectDescription && role === 'buyer') {
+        setCurrentView('post-request');
+      }
     }
   };
 
   const handleKYCComplete = () => {
     setShowKYC(false);
-    setIsAuthenticated(true);
   };
 
+  // Show loading while checking session
+  if (!isSessionChecked) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00B8A9]"></div>
+      </div>
+    );
+  }
+
   // Show landing page first
-  if (showLanding) {
+  if (showLanding && !currentUser) {
     return <LandingPage onGetStarted={handleGetStarted} onLogin={handleLogin} />;
   }
 
@@ -148,7 +113,7 @@ function AppContent() {
   }
 
   // Show landing if not authenticated
-  if (!isAuthenticated) {
+  if (!currentUser) {
     return <LandingPage onGetStarted={handleGetStarted} onLogin={handleLogin} />;
   }
 
@@ -173,17 +138,25 @@ function AppContent() {
       case 'payments':
         return (
           <TransactionHistory
-            transactions={mockTransactions}
+            transactions={[]}
             userRole={currentRole}
-            totalEarnings={12500}
-            totalSpent={8200}
-            pendingAmount={1200}
+            totalEarnings={0}
+            totalSpent={0}
+            pendingAmount={0}
           />
         );
       case 'workspace':
         return (
           <ProjectWorkspace
-            {...mockProject}
+            projectId=""
+            projectTitle="No Active Project"
+            description="Select a project to view workspace"
+            freelancer={{ id: '', name: '', avatar: '' }}
+            buyer={{ id: '', name: '', avatar: '' }}
+            status="pending"
+            milestones={[]}
+            deliverables={[]}
+            totalBudget={0}
             currentUserRole={currentRole}
             onMessageClick={() => handleNavigate('messages')}
             onVideoCallClick={() => {}}
@@ -204,7 +177,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header onNavigate={handleNavigate} currentView={currentView} />
+      <Header onNavigate={handleNavigate} currentView={currentView} onLogout={handleLogout} />
       <main className="container mx-auto px-4 py-8 pb-24 md:pb-8">
         {renderView()}
       </main>

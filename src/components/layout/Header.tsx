@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bell, MessageSquare, User, ChevronDown, Zap } from 'lucide-react';
+import { Bell, MessageSquare, User, ChevronDown, Zap, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -20,9 +20,10 @@ import { cn } from '@/lib/utils';
 interface HeaderProps {
   onNavigate: (view: string) => void;
   currentView: string;
+  onLogout?: () => void;
 }
 
-export function Header({ onNavigate, currentView }: HeaderProps) {
+export function Header({ onNavigate, currentView, onLogout }: HeaderProps) {
   const {
     currentUser,
     currentRole,
@@ -31,10 +32,16 @@ export function Header({ onNavigate, currentView }: HeaderProps) {
     toggleOnlineStatus,
     conversations,
     pendingMatches,
+    logout,
   } = useApp();
 
   const unreadMessages = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
   const pendingMatchCount = pendingMatches.length;
+
+  const handleLogout = async () => {
+    await logout();
+    onLogout?.();
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
@@ -193,7 +200,8 @@ export function Header({ onNavigate, currentView }: HeaderProps) {
                 Buyer Mode
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
                 Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>

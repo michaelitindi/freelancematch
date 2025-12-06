@@ -3,6 +3,7 @@ const API_BASE = '/api';
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
+    credentials: 'include', // Include cookies
     headers: {
       'Content-Type': 'application/json',
       ...options?.headers,
@@ -20,10 +21,19 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 // Auth
 export const auth = {
   register: (data: { email: string; password: string; name: string; role: string }) =>
-    fetchApi('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    fetchApi<{ success: boolean; user: any; token: string }>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
   
   login: (data: { email: string; password: string }) =>
-    fetchApi('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    fetchApi<{ success: boolean; user: any; token: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  
+  logout: () =>
+    fetchApi<{ success: boolean }>('/auth/logout', { method: 'POST' }),
+  
+  me: () =>
+    fetchApi<{ success: boolean; user: any }>('/auth/me'),
+  
+  refresh: () =>
+    fetchApi<{ success: boolean; token: string }>('/auth/refresh', { method: 'POST' }),
 };
 
 // Users

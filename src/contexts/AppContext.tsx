@@ -2,15 +2,8 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import type { User, UserRole, Match, MatchRequest, Conversation, Activity } from '@/types';
-import {
-  mockFreelancers,
-  mockBuyers,
-  mockMatches,
-  mockMatchRequests,
-  mockConversations,
-  mockActivities,
-} from '@/lib/mock-data';
 import api from '@/lib/api-client';
+import { setAuthCookie, removeAuthCookie, isAuthenticated, getCurrentUser } from '@/lib/auth-client';
 
 interface AppState {
   // User state
@@ -54,37 +47,81 @@ interface AppContextType extends AppState {
   // API actions
   login: (email: string, password: string) => Promise<boolean>;
   register: (email: string, password: string, name: string, role: UserRole) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshActivities: () => Promise<void>;
   refreshMatches: () => Promise<void>;
+  checkSession: () => Promise<boolean>;
   isLoading: boolean;
+  isSessionChecked: boolean;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Initialize with mock freelancer user
-  const [currentUser, setCurrentUser] = useState<User | null>(mockFreelancers[0]);
+  // Initialize with null user - will be set from session
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole>('freelancer');
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSessionChecked, setIsSessionChecked] = useState(false);
   
-  const [pendingMatches, setPendingMatches] = useState<Match[]>(mockMatches);
+  const [pendingMatches, setPendingMatches] = useState<Match[]>([]);
   const [activeMatches, setActiveMatches] = useState<Match[]>([]);
-  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>(mockMatchRequests);
+  const [matchRequests, setMatchRequests] = useState<MatchRequest[]>([]);
   
-  const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
-  const [activities, setActivities] = useState<Activity[]>(mockActivities);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   
   const [showMatchNotification, setShowMatchNotification] = useState(false);
   const [currentMatch, setCurrentMatch] = useState<Match | null>(null);
+
+  // Check session on mount
+  const checkSession = useCallback(async (): Promise<boolean> => {
+    try {
+      // First check if we have a valid token client-side
+      if (!isAuthenticated()) {
+        setIsSessionChecked(true);
+        return false;
+      }
+      
+      // Verify with server
+      const result = await api.auth.me();
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setCurrentRole(result.user.role);
+        setIsOnline(result.user.is_online === 1);
+        setIsSessionChecked(true);
+        return true;
+      }
+      
+      // Token invalid, clear it
+      removeAuthCookie();
+      setIsSessionChecked(true);
+      return false;
+    } catch (error) {
+      console.error('Session check failed:', error);
+      removeAuthCookie();
+      setIsSessionChecked(true);
+      return false;
+    }
+  }, []);
+
+  // Check session on mount
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   // API-based login
   const login = useCallback(async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const result = await api.auth.login({ email, password }) as any;
+      const result = await api.auth.login({ email, password });
       if (result.success && result.user) {
+        // Token is set via httpOnly cookie by the server
+        // Also set client-side cookie for session checking
+        if (result.token) {
+          setAuthCookie(result.token);
+        }
         setCurrentUser(result.user);
         setCurrentRole(result.user.role);
         setIsOnline(result.user.is_online === 1);
@@ -103,8 +140,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (email: string, password: string, name: string, role: UserRole): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const result = await api.auth.register({ email, password, name, role }) as any;
+      const result = await api.auth.register({ email, password, name, role });
       if (result.success && result.user) {
+        // Token is set via httpOnly cookie by the server
+        // Also set client-side cookie for session checking
+        if (result.token) {
+          setAuthCookie(result.token);
+        }
         setCurrentUser(result.user);
         setCurrentRole(result.user.role);
         return true;
@@ -118,7 +160,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await api.auth.logout();
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    }
+    removeAuthCookie();
     setCurrentUser(null);
     setCurrentRole('freelancer');
     setIsOnline(false);
@@ -171,11 +219,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const switchRole = useCallback((role: UserRole) => {
     setCurrentRole(role);
-    if (role === 'freelancer') {
-      setCurrentUser(mockFreelancers[0]);
-    } else {
-      setCurrentUser(mockBuyers[0]);
-    }
+    // Role switching now just changes the role, user stays the same
   }, []);
 
   const toggleOnlineStatus = useCallback(async () => {
@@ -325,7 +369,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     logout,
     refreshActivities,
     refreshMatches,
+    checkSession,
     isLoading,
+    isSessionChecked,
   };
 
   return (

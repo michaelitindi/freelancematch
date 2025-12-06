@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
-import { mockFreelancerAnalytics, mockProjects, mockCourses } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
 interface FreelancerDashboardProps {
@@ -26,37 +25,36 @@ interface FreelancerDashboardProps {
 
 export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
   const { currentUser, isOnline, pendingMatches, activities, simulateMatch } = useApp();
-  const analytics = mockFreelancerAnalytics;
 
   const stats = [
     {
       title: 'Total Revenue',
-      value: `$${analytics.totalRevenue.toLocaleString()}`,
-      change: '+12.5%',
+      value: '$0',
+      change: '+0%',
       icon: DollarSign,
       color: 'text-[#00B8A9]',
       bgColor: 'bg-[#00B8A9]/10',
     },
     {
       title: 'Completion Rate',
-      value: `${analytics.completionRate}%`,
-      change: '+2.1%',
+      value: '0%',
+      change: '+0%',
       icon: CheckCircle2,
       color: 'text-[#00B8A9]',
       bgColor: 'bg-[#00B8A9]/10',
     },
     {
       title: 'Average Rating',
-      value: analytics.averageRating.toFixed(1),
-      change: '+0.2',
+      value: '0.0',
+      change: '+0',
       icon: Star,
       color: 'text-[#F6A623]',
       bgColor: 'bg-[#F6A623]/10',
     },
     {
       title: 'Response Time',
-      value: `${analytics.responseTime}h`,
-      change: '-0.5h',
+      value: '0h',
+      change: '0h',
       icon: Clock,
       color: 'text-[#1A2B4A]',
       bgColor: 'bg-[#1A2B4A]/10',
@@ -208,47 +206,15 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="font-display">Active Projects</CardTitle>
-              <Badge variant="secondary">{mockProjects.length}</Badge>
+              <Badge variant="secondary">0</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {mockProjects.map((project) => {
-              const completedMilestones = project.milestones.filter(m => m.status === 'completed').length;
-              const progress = (completedMilestones / project.milestones.length) * 100;
-              
-              return (
-                <div 
-                  key={project.id} 
-                  className="p-4 rounded-lg border bg-card hover:border-[#00B8A9]/50 transition-colors cursor-pointer"
-                  onClick={() => onNavigate('workspace')}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <h4 className="font-semibold">{project.title}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        ${project.totalBudget.toLocaleString()} budget
-                      </p>
-                    </div>
-                    <Badge 
-                      variant="secondary"
-                      className={cn(
-                        project.status === 'in_progress' && 'bg-[#00B8A9]/10 text-[#00B8A9]',
-                        project.status === 'review' && 'bg-[#F6A623]/10 text-[#F6A623]'
-                      )}
-                    >
-                      {project.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-mono">{Math.round(progress)}%</span>
-                    </div>
-                    <Progress value={progress} className="h-2" />
-                  </div>
-                </div>
-              );
-            })}
+            <div className="text-center py-8 text-muted-foreground">
+              <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No active projects yet</p>
+              <p className="text-sm">Projects will appear here when you get matched</p>
+            </div>
             <Button 
               variant="outline" 
               className="w-full"
@@ -315,40 +281,9 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {mockCourses.slice(0, 3).map((course) => {
-              const completedModules = course.modules.filter(m => m.completed).length;
-              const progress = (completedModules / course.modules.length) * 100;
-              
-              return (
-                <div
-                  key={course.id}
-                  className="group relative overflow-hidden rounded-xl border bg-card hover:shadow-lg transition-all cursor-pointer"
-                  onClick={() => onNavigate('courses')}
-                >
-                  <div className="aspect-video relative overflow-hidden">
-                    <img
-                      src={course.thumbnail}
-                      alt={course.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <span className="absolute top-3 right-3 text-2xl">{course.badge}</span>
-                  </div>
-                  <div className="p-4">
-                    <h4 className="font-semibold mb-1">{course.title}</h4>
-                    <p className="text-xs text-muted-foreground mb-3">{course.duration}</p>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">Progress</span>
-                        <span className="font-mono">{Math.round(progress)}%</span>
-                      </div>
-                      <Progress value={progress} className="h-1.5" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No courses in progress</p>
+            <p className="text-sm">Browse courses to start learning</p>
           </div>
         </CardContent>
       </Card>

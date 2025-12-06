@@ -18,14 +18,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApp } from '@/contexts/AppContext';
-import { mockMessages } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
+import type { Message } from '@/types';
 
 export function MessagesView() {
   const { conversations, currentUser } = useApp();
   const [selectedConversation, setSelectedConversation] = useState(conversations[0]?.id || '');
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

@@ -1,18 +1,42 @@
 import { Hono } from 'hono';
 import { handle } from 'hono/vercel';
 import { cors } from 'hono/cors';
+import { setCookie, getCookie, deleteCookie } from 'hono/cookie';
 import db, { generateId, jsonParse } from '@/lib/db';
 import { Polar } from '@polar-sh/sdk';
+import { generateToken, verifyToken, hashPassword, verifyPassword, cookieOptions } from '@/lib/auth';
 
 const app = new Hono().basePath('/api');
 
 // Middleware
-app.use('*', cors());
+app.use('*', cors({
+  origin: '*',
+  credentials: true,
+}));
 
 // Initialize Polar client (will use env var)
 const polar = process.env.POLAR_ACCESS_TOKEN 
   ? new Polar({ accessToken: process.env.POLAR_ACCESS_TOKEN })
   : null;
+
+const COOKIE_NAME = 'fm_session';
+
+// Auth middleware
+async function authMiddleware(c: any, next: () => Promise<void>) {
+  const token = getCookie(c, COOKIE_NAME);
+  
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload) {
+      c.set('user', payload);
+    }
+  }
+  
+  await next();
+}
+
+// Apply auth middleware to all routes
+app.use('*', authMiddleware);
 
 // ============ AUTH ROUTES ============
 
@@ -20,7 +44,7 @@ app.post('/auth/register', async (c) => {
   const { email, password, name, role } = await c.req.json();
   
   const id = generateId();
-  const passwordHash = Buffer.from(password).toString('base64'); // Simple hash for demo
+  const passwordHash = hashPassword(password);
   
   try {
     db.prepare(`
@@ -47,9 +71,25 @@ app.post('/auth/register', async (c) => {
       VALUES (?, ?, 'account_created', 'Account Created', 'Welcome to FreelanceMatch!')
     `).run(generateId(), id);
     
-    const user = db.prepare('SELECT id, email, name, role, avatar, kyc_status FROM users WHERE id = ?').get(id);
+    const user = db.prepare('SELECT id, email, name, role, avatar, kyc_status FROM users WHERE id = ?').get(id) as any;
     
-    return c.json({ success: true, user });
+    // Generate JWT token
+    const token = generateToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+    
+    // Set cookie
+    setCookie(c, COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+    
+    return c.json({ success: true, user, token });
   } catch (error: any) {
     return c.json({ success: false, error: error.message }, 400);
   }
@@ -57,18 +97,94 @@ app.post('/auth/register', async (c) => {
 
 app.post('/auth/login', async (c) => {
   const { email, password } = await c.req.json();
-  const passwordHash = Buffer.from(password).toString('base64');
   
   const user = db.prepare(`
-    SELECT id, email, name, role, avatar, kyc_status, is_online
-    FROM users WHERE email = ? AND password_hash = ?
-  `).get(email, passwordHash) as any;
+    SELECT id, email, name, role, avatar, kyc_status, is_online, password_hash
+    FROM users WHERE email = ?
+  `).get(email) as any;
   
   if (!user) {
     return c.json({ success: false, error: 'Invalid credentials' }, 401);
   }
   
+  // Verify password (support both old base64 and new hash)
+  const isValidOld = Buffer.from(password).toString('base64') === user.password_hash;
+  const isValidNew = verifyPassword(password, user.password_hash);
+  
+  if (!isValidOld && !isValidNew) {
+    return c.json({ success: false, error: 'Invalid credentials' }, 401);
+  }
+  
+  // Generate JWT token
+  const token = generateToken({
+    userId: user.id,
+    email: user.email,
+    role: user.role,
+  });
+  
+  // Set cookie
+  setCookie(c, COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+  
+  // Remove password_hash from response
+  const { password_hash, ...userWithoutPassword } = user;
+  
+  return c.json({ success: true, user: userWithoutPassword, token });
+});
+
+app.post('/auth/logout', async (c) => {
+  deleteCookie(c, COOKIE_NAME, { path: '/' });
+  return c.json({ success: true });
+});
+
+app.get('/auth/me', async (c) => {
+  const authUser = c.get('user');
+  
+  if (!authUser) {
+    return c.json({ success: false, error: 'Not authenticated' }, 401);
+  }
+  
+  const user = db.prepare(`
+    SELECT id, email, name, role, avatar, kyc_status, is_online
+    FROM users WHERE id = ?
+  `).get(authUser.userId);
+  
+  if (!user) {
+    return c.json({ success: false, error: 'User not found' }, 404);
+  }
+  
   return c.json({ success: true, user });
+});
+
+app.post('/auth/refresh', async (c) => {
+  const authUser = c.get('user');
+  
+  if (!authUser) {
+    return c.json({ success: false, error: 'Not authenticated' }, 401);
+  }
+  
+  // Generate new token
+  const token = generateToken({
+    userId: authUser.userId,
+    email: authUser.email,
+    role: authUser.role,
+  });
+  
+  // Set new cookie
+  setCookie(c, COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+    path: '/',
+  });
+  
+  return c.json({ success: true, token });
 });
 
 // ============ USER ROUTES ============

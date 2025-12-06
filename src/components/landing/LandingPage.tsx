@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Zap,
   ArrowRight,
@@ -13,19 +13,31 @@ import {
   Play,
   Briefcase,
   User,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 interface LandingPageProps {
-  onGetStarted: (role: 'freelancer' | 'buyer') => void;
+  onGetStarted: (role: 'freelancer' | 'buyer', projectDescription?: string) => void;
   onLogin: () => void;
 }
 
 export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
+  const [projectDescription, setProjectDescription] = useState('');
+
+  const handleGetStarted = (role: 'freelancer' | 'buyer', projectDescription?: string) => {
+    onGetStarted(role, projectDescription);
+  };
+
+  const handleGetMatched = () => {
+    onGetStarted('buyer', projectDescription);
+  };
+
   return (
     <div className="min-h-screen bg-[#F8F6F3]">
       {/* Navigation */}
@@ -49,11 +61,20 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
             </a>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={onLogin}>
-              Sign In
+            <Button 
+              variant="outline" 
+              className="border-[#00B8A9] text-[#00B8A9] hover:bg-[#00B8A9]/10"
+              onClick={() => onGetStarted('freelancer')}
+            >
+              <User className="h-4 w-4 mr-2" />
+              For Freelancers
             </Button>
-            <Button className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white" onClick={() => onGetStarted('freelancer')}>
-              Get Started
+            <Button 
+              className="bg-[#1A2B4A] hover:bg-[#1A2B4A]/90 text-white" 
+              onClick={() => onGetStarted('buyer')}
+            >
+              <Briefcase className="h-4 w-4 mr-2" />
+              For Businesses
             </Button>
           </div>
         </div>
@@ -77,24 +98,53 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
               Like Uber, but for digital services. Post your project and get matched with qualified freelancers in seconds—not days. Fair opportunity for all talent.
             </p>
+            
+            {/* Project Input Box */}
+            <div className="max-w-2xl mx-auto mb-10">
+              <div className="relative">
+                <div className="flex gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input
+                      placeholder="Describe what you need help with... (e.g., 'I need a logo design for my startup')"
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                      className="pl-12 h-14 text-lg border-2 border-[#1A2B4A]/20 focus:border-[#00B8A9] rounded-xl"
+                    />
+                  </div>
+                  <Button
+                    size="lg"
+                    className="bg-[#00B8A9] hover:bg-[#00B8A9]/90 text-white px-8 h-14 text-lg rounded-xl"
+                    onClick={handleGetMatched}
+                  >
+                    Get Matched
+                    <ArrowRight className="h-5 w-5 ml-2" />
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground mt-3">
+                  Popular: Web Development • UI/UX Design • Mobile Apps • Content Writing • Marketing
+                </p>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Button
                 size="lg"
-                className="bg-[#1A2B4A] hover:bg-[#1A2B4A]/90 text-white px-8 h-14 text-lg"
+                variant="outline"
+                className="border-[#1A2B4A]/30 text-[#1A2B4A] hover:bg-[#1A2B4A]/5 px-8 h-12"
                 onClick={() => onGetStarted('buyer')}
               >
                 <Briefcase className="h-5 w-5 mr-2" />
-                Hire Talent
-                <ArrowRight className="h-5 w-5 ml-2" />
+                I'm looking to hire
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="border-[#00B8A9] text-[#00B8A9] hover:bg-[#00B8A9]/10 px-8 h-14 text-lg"
+                className="border-[#00B8A9]/50 text-[#00B8A9] hover:bg-[#00B8A9]/10 px-8 h-12"
                 onClick={() => onGetStarted('freelancer')}
               >
                 <User className="h-5 w-5 mr-2" />
-                Find Work
+                I'm a freelancer
               </Button>
             </div>
           </div>

@@ -17,7 +17,6 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
-import { mockFreelancerAnalytics, mockBuyerAnalytics, mockFreelancers } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
 export function AnalyticsView() {
@@ -31,13 +30,11 @@ export function AnalyticsView() {
 }
 
 function FreelancerAnalytics() {
-  const analytics = mockFreelancerAnalytics;
-
   const stats = [
     {
       title: 'Total Revenue',
-      value: `$${analytics.totalRevenue.toLocaleString()}`,
-      change: '+12.5%',
+      value: '$0',
+      change: '+0%',
       trend: 'up',
       icon: DollarSign,
       color: 'text-[#00B8A9]',
@@ -45,8 +42,8 @@ function FreelancerAnalytics() {
     },
     {
       title: 'Completion Rate',
-      value: `${analytics.completionRate}%`,
-      change: '+2.1%',
+      value: '0%',
+      change: '+0%',
       trend: 'up',
       icon: CheckCircle2,
       color: 'text-[#00B8A9]',
@@ -54,8 +51,8 @@ function FreelancerAnalytics() {
     },
     {
       title: 'Average Rating',
-      value: analytics.averageRating.toFixed(1),
-      change: '+0.2',
+      value: '0.0',
+      change: '+0',
       trend: 'up',
       icon: Star,
       color: 'text-[#F6A623]',
@@ -63,8 +60,8 @@ function FreelancerAnalytics() {
     },
     {
       title: 'Response Time',
-      value: `${analytics.responseTime}h`,
-      change: '-0.5h',
+      value: '0h',
+      change: '0h',
       trend: 'down',
       icon: Clock,
       color: 'text-[#1A2B4A]',
@@ -276,8 +273,6 @@ function FreelancerAnalytics() {
 }
 
 function BuyerAnalytics() {
-  const analytics = mockBuyerAnalytics;
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -298,9 +293,9 @@ function BuyerAnalytics() {
               <div className="p-2 rounded-lg bg-[#1A2B4A]/10">
                 <DollarSign className="h-5 w-5 text-[#1A2B4A]" />
               </div>
-              <Badge variant="secondary">+8.2%</Badge>
+              <Badge variant="secondary">+0%</Badge>
             </div>
-            <p className="text-2xl font-bold font-mono">${analytics.totalSpent.toLocaleString()}</p>
+            <p className="text-2xl font-bold font-mono">$0</p>
             <p className="text-sm text-muted-foreground">Total Spent</p>
           </CardContent>
         </Card>
@@ -310,9 +305,9 @@ function BuyerAnalytics() {
               <div className="p-2 rounded-lg bg-[#00B8A9]/10">
                 <CheckCircle2 className="h-5 w-5 text-[#00B8A9]" />
               </div>
-              <Badge variant="secondary">+3</Badge>
+              <Badge variant="secondary">+0</Badge>
             </div>
-            <p className="text-2xl font-bold font-mono">{analytics.projectsCompleted}</p>
+            <p className="text-2xl font-bold font-mono">0</p>
             <p className="text-sm text-muted-foreground">Projects Completed</p>
           </CardContent>
         </Card>
@@ -324,7 +319,7 @@ function BuyerAnalytics() {
               </div>
               <Badge variant="secondary">Active</Badge>
             </div>
-            <p className="text-2xl font-bold font-mono">{analytics.activeProjects}</p>
+            <p className="text-2xl font-bold font-mono">0</p>
             <p className="text-sm text-muted-foreground">Active Projects</p>
           </CardContent>
         </Card>
@@ -336,7 +331,7 @@ function BuyerAnalytics() {
               </div>
               <Badge variant="secondary">Top Talent</Badge>
             </div>
-            <p className="text-2xl font-bold font-mono">{analytics.favoriteFreelancers.length}</p>
+            <p className="text-2xl font-bold font-mono">0</p>
             <p className="text-sm text-muted-foreground">Favorite Freelancers</p>
           </CardContent>
         </Card>
@@ -410,31 +405,10 @@ function BuyerAnalytics() {
           <CardDescription>Freelancers you&apos;ve worked with most</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {mockFreelancers.slice(0, 3).map((freelancer) => (
-              <div
-                key={freelancer.id}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card hover:shadow-md transition-all"
-              >
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={freelancer.avatar} />
-                  <AvatarFallback>{freelancer.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{freelancer.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {freelancer.categories?.[0]}
-                  </p>
-                  <div className="flex items-center gap-1 mt-1">
-                    <Star className="h-3 w-3 text-[#F6A623] fill-[#F6A623]" />
-                    <span className="text-xs font-mono">{freelancer.rating}</span>
-                    <span className="text-xs text-muted-foreground">
-                      • {freelancer.totalJobs} jobs
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="text-center py-8 text-muted-foreground">
+            <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p>No freelancers yet</p>
+            <p className="text-sm">Your top freelancers will appear here</p>
           </div>
         </CardContent>
       </Card>
