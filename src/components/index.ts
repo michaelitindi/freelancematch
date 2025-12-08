@@ -24,3 +24,6 @@ export { VideoCallModal, ScheduleCallButton } from './communication/VideoCallMod
 
 // Activity Components
 export { ActivityFeed, ActivityFeedCompact } from './activity/ActivityFeed';
+
+// Moderation Components
+export { ReviewModerationQueue } from './moderation/ReviewModerationQueue';

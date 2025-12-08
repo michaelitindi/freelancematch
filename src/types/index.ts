@@ -180,11 +180,63 @@ export interface BuyerAnalytics {
 // Activity Types
 export interface Activity {
   id: string;
-  type: 'match' | 'message' | 'job_completed' | 'rating' | 'payment' | 'course_completed';
+  type: 'match' | 'message' | 'job_completed' | 'rating' | 'payment' | 'course_completed' | 'video_call' | 'review_rejected';
   title: string;
   description: string;
   timestamp: Date;
   metadata?: Record<string, unknown>;
+}
+
+// Real-time Event Types
+export interface RealtimeEvent {
+  id: string;
+  user_id: string;
+  event_type: 'new_match' | 'match_accepted' | 'match_declined' | 'new_message' | 'new_review' | 'payment_received' | 'payment_released' | 'video_call_invite';
+  payload: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+}
+
+// Video Room Types
+export interface VideoRoom {
+  id: string;
+  project_id: string;
+  room_url: string;
+  room_name: string;
+  created_by: string;
+  status: 'active' | 'ended';
+  recording_url?: string;
+  started_at: string;
+  ended_at?: string;
+}
+
+// Review Moderation Types
+export interface FlaggedReview {
+  id: string;
+  project_id: string;
+  project_title: string;
+  reviewer_id: string;
+  reviewer_name: string;
+  reviewer_avatar?: string;
+  reviewee_id: string;
+  reviewee_name: string;
+  reviewee_avatar?: string;
+  overall_rating: number;
+  feedback: string;
+  flag_reason: string;
+  status: 'pending_moderation' | 'published' | 'rejected';
+  is_flagged: boolean;
+  moderation_notes?: string;
+  moderated_by?: string;
+  moderated_at?: string;
+  created_at: string;
+}
+
+// Smart Categorization Types
+export interface CategorySuggestion {
+  category: string;
+  confidence: number;
+  keywords: string[];
 }
 
 // Category Types

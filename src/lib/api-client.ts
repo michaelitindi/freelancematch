@@ -89,10 +89,11 @@ export const projects = {
 
 // Matches
 export const matches = {
-  list: (params?: { freelancerId?: string; projectId?: string; status?: string }) => {
+  list: (params?: { freelancerId?: string; projectId?: string; buyerId?: string; status?: string }) => {
     const searchParams = new URLSearchParams();
     if (params?.freelancerId) searchParams.set('freelancerId', params.freelancerId);
     if (params?.projectId) searchParams.set('projectId', params.projectId);
+    if (params?.buyerId) searchParams.set('buyerId', params.buyerId);
     if (params?.status) searchParams.set('status', params.status);
     return fetchApi(`/matches?${searchParams}`);
   },
@@ -208,6 +209,39 @@ export const courses = {
     fetchApi(`/courses/progress/${progressId}`, { method: 'PATCH', body: JSON.stringify(data) }),
 };
 
+// Smart Categorization
+export const categorization = {
+  suggest: (description: string) =>
+    fetchApi('/categorize', { method: 'POST', body: JSON.stringify({ description }) }),
+};
+
+// Real-time Events
+export const events = {
+  poll: (userId: string) => fetchApi(`/events/${userId}`),
+  
+  create: (data: { userId: string; eventType: string; payload: any }) =>
+    fetchApi('/events', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+// Video Calls
+export const video = {
+  createRoom: (data: { projectId: string; createdBy: string; participantIds: string[] }) =>
+    fetchApi('/video/create-room', { method: 'POST', body: JSON.stringify(data) }),
+  
+  getRooms: (projectId: string) => fetchApi(`/video/rooms/${projectId}`),
+  
+  endRoom: (roomId: string, recordingUrl?: string) =>
+    fetchApi(`/video/rooms/${roomId}/end`, { method: 'PATCH', body: JSON.stringify({ recordingUrl }) }),
+};
+
+// Review Moderation
+export const moderation = {
+  getReviews: () => fetchApi('/moderation/reviews'),
+  
+  moderateReview: (reviewId: string, data: { action: 'approve' | 'reject'; moderationNotes?: string; moderatorId: string }) =>
+    fetchApi(`/moderation/reviews/${reviewId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+};
+
 export default {
   auth,
   users,
@@ -223,4 +257,8 @@ export default {
   activities,
   kyc,
   courses,
+  categorization,
+  events,
+  video,
+  moderation,
 };

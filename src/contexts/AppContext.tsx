@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import type { User, UserRole, Match, MatchRequest, Conversation, Activity } from '@/types';
 import api from '@/lib/api-client';
 import { setAuthCookie, removeAuthCookie, isAuthenticated, getCurrentUser } from '@/lib/auth-client';
@@ -344,6 +344,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setShowMatchNotification(true);
     }
   }, [currentRole, isOnline, currentUser]);
+
+  // Real-time event polling
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pollRealtimeEvents = useCallback(async () => {
+    if (!currentUser?.id) return;
+
+    try {
+      const events = await api.events.poll(currentUser.id);
+      
+      if (Array.isArray(events) && events.length > 0) {
+        events.forEach((event: any) => {
+          switch (event.event_type) {
+            case 'new_match':
+              // Refresh matches when a new match is created
+              refreshMatches();
+              break;
+            case 'match_accepted':
+              // Refresh activities
+              refreshActivities();
+              break;
+            case 'new_message':
+              // Could trigger a notification here
+              break;
+            case 'new_review':
+              // Refresh activities
+              refreshActivities();
+              break;
+            case 'video_call_invite':
+              // Show video call notification
+              setActivities(acts => [{
+                id: `a${Date.now()}`,
+                type: 'video_call',
+                title: 'Video Call Invitation',
+                description: 'You have been invited to a video call',
+                timestamp: new Date(),
+                metadata: event.payload,
+              }, ...acts]);
+              break;
+            case 'payment_received':
+            case 'payment_released':
+              refreshActivities();
+              break;
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to poll realtime events:', error);
+    }
+  }, [currentUser?.id, refreshMatches, refreshActivities]);
+
+  // Start/stop polling based on user login status
+  useEffect(() => {
+    if (currentUser?.id) {
+      // Poll every 5 seconds
+      pollingIntervalRef.current = setInterval(pollRealtimeEvents, 5000);
+      // Initial poll
+      pollRealtimeEvents();
+    } else {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [currentUser?.id, pollRealtimeEvents]);
 
   const value: AppContextType = {
     currentUser,

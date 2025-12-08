@@ -140,19 +140,26 @@ export function MatchNotification() {
           {/* Actions */}
           <div className="flex gap-3">
             <Button
+              variant="ghost"
+              className="flex-1 h-12 text-muted-foreground hover:text-foreground"
+              onClick={dismissMatchNotification}
+            >
+              Skip for Now
+            </Button>
+            <Button
               variant="outline"
-              className="flex-1 h-12"
+              className="flex-1 h-12 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
               onClick={() => declineMatch(currentMatch.id)}
             >
               <X className="h-4 w-4 mr-2" />
-              Decline
+              Not Interested
             </Button>
             <Button
               className="flex-1 h-12 bg-[#00B8A9] hover:bg-[#00A89A] text-white"
               onClick={() => acceptMatch(currentMatch.id)}
             >
               <Check className="h-4 w-4 mr-2" />
-              Accept Match
+              Accept
             </Button>
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Video,
   VideoOff,
@@ -13,6 +13,8 @@ import {
   Maximize2,
   Users,
   Circle,
+  ExternalLink,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,7 +41,10 @@ interface VideoCallModalProps {
   onClose: () => void;
   participants: Participant[];
   projectTitle?: string;
+  projectId?: string;
+  currentUserId?: string;
   onRecord?: () => void;
+  roomUrl?: string;
 }
 
 export function VideoCallModal({
@@ -47,20 +52,69 @@ export function VideoCallModal({
   onClose,
   participants,
   projectTitle,
+  projectId,
+  currentUserId,
   onRecord,
+  roomUrl: initialRoomUrl,
 }: VideoCallModalProps) {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [roomUrl, setRoomUrl] = useState(initialRoomUrl || '');
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  const handleEndCall = () => {
+  // Create video room when modal opens
+  useEffect(() => {
+    if (isOpen && !roomUrl && projectId && currentUserId) {
+      createVideoRoom();
+    }
+  }, [isOpen, projectId, currentUserId]);
+
+  const createVideoRoom = async () => {
+    if (!projectId || !currentUserId) return;
+    
+    setIsCreatingRoom(true);
+    try {
+      const response = await fetch('/api/video/create-room', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          createdBy: currentUserId,
+          participantIds: participants.map(p => p.id),
+        }),
+      });
+      const data = await response.json();
+      if (data.roomUrl) {
+        setRoomUrl(data.roomUrl);
+      }
+    } catch (error) {
+      console.error('Failed to create video room:', error);
+    }
+    setIsCreatingRoom(false);
+  };
+
+  const handleEndCall = async () => {
+    setIsInCall(false);
     onClose();
   };
 
   const handleRecord = () => {
     setIsRecording(!isRecording);
     onRecord?.();
+  };
+
+  const handleJoinCall = () => {
+    setIsInCall(true);
+  };
+
+  const openInNewTab = () => {
+    if (roomUrl) {
+      window.open(roomUrl, '_blank');
+    }
   };
 
   return (
@@ -107,7 +161,40 @@ export function VideoCallModal({
           <div className="flex-1 relative p-4">
             {/* Main Video */}
             <div className="w-full h-full rounded-xl bg-[#0A1B3A] flex items-center justify-center overflow-hidden">
-              {isVideoOn ? (
+              {isCreatingRoom ? (
+                <div className="text-center">
+                  <Loader2 className="h-12 w-12 text-[#00B8A9] mx-auto mb-4 animate-spin" />
+                  <p className="text-white/70">Setting up video room...</p>
+                </div>
+              ) : roomUrl && isInCall ? (
+                <iframe
+                  ref={iframeRef}
+                  src={roomUrl}
+                  allow="camera; microphone; fullscreen; speaker; display-capture"
+                  className="w-full h-full border-0"
+                />
+              ) : roomUrl ? (
+                <div className="text-center">
+                  <Video className="h-16 w-16 text-[#00B8A9] mx-auto mb-4" />
+                  <p className="text-white mb-4">Video room is ready</p>
+                  <div className="flex gap-3 justify-center">
+                    <Button
+                      onClick={handleJoinCall}
+                      className="bg-[#00B8A9] hover:bg-[#00A89A] text-white"
+                    >
+                      Join Call
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={openInNewTab}
+                      className="border-white/20 text-white hover:bg-white/10"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </div>
+              ) : isVideoOn ? (
                 <div className="relative w-full h-full">
                   {/* Placeholder for video stream */}
                   <div className="absolute inset-0 bg-gradient-to-br from-[#1A2B4A] to-[#0A1B3A]" />
@@ -132,17 +219,19 @@ export function VideoCallModal({
               )}
             </div>
 
-            {/* Self View (Picture-in-Picture) */}
-            <div className="absolute bottom-8 right-8 w-48 h-36 rounded-lg bg-[#0A1B3A] border-2 border-white/20 overflow-hidden shadow-xl">
-              <div className="w-full h-full flex items-center justify-center">
-                <Avatar className="h-16 w-16">
-                  <AvatarFallback className="bg-[#1A2B4A] text-white">You</AvatarFallback>
-                </Avatar>
+            {/* Self View (Picture-in-Picture) - only show when not in iframe call */}
+            {!isInCall && (
+              <div className="absolute bottom-8 right-8 w-48 h-36 rounded-lg bg-[#0A1B3A] border-2 border-white/20 overflow-hidden shadow-xl">
+                <div className="w-full h-full flex items-center justify-center">
+                  <Avatar className="h-16 w-16">
+                    <AvatarFallback className="bg-[#1A2B4A] text-white">You</AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white">
+                  You {isMuted && '(Muted)'}
+                </div>
               </div>
-              <div className="absolute bottom-2 left-2 bg-black/50 px-2 py-1 rounded text-xs text-white">
-                You {isMuted && '(Muted)'}
-              </div>
-            </div>
+            )}
           </div>
 
           {/* Controls */}

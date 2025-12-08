@@ -352,10 +352,13 @@ app.post('/projects', async (c) => {
   `).run(generateId(), buyerId, title, JSON.stringify({ projectId, budget }));
   
   // Trigger matching algorithm
-  await triggerMatching(projectId, category);
+  const matchingResult = await triggerMatching(projectId, category);
   
   const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
-  return c.json(project);
+  return c.json({ 
+    ...project as object, 
+    matchingResult 
+  });
 });
 
 app.get('/projects', (c) => {
@@ -436,7 +439,7 @@ app.patch('/projects/:id', async (c) => {
 
 // ============ MATCHING ROUTES ============
 
-async function triggerMatching(projectId: string, category: string) {
+async function triggerMatching(projectId: string, category: string): Promise<{ matchesCreated: number; freelancersAvailable: number }> {
   // Get online freelancers in the category
   const freelancers = db.prepare(`
     SELECT u.id, u.is_online, fp.categories, fp.rating, fp.total_jobs, fp.jobs_completed
@@ -444,6 +447,12 @@ async function triggerMatching(projectId: string, category: string) {
     JOIN freelancer_profiles fp ON u.id = fp.user_id
     WHERE u.role = 'freelancer' AND u.is_online = 1
   `).all() as any[];
+  
+  if (freelancers.length === 0) {
+    return { matchesCreated: 0, freelancersAvailable: 0 };
+  }
+  
+  let matchesCreated = 0;
   
   // Calculate match scores
   for (const freelancer of freelancers) {
@@ -479,30 +488,44 @@ async function triggerMatching(projectId: string, category: string) {
     ) * boost * rotationPenalty;
     
     // Create match record
+    const matchId = generateId();
     db.prepare(`
       INSERT INTO matches (id, project_id, freelancer_id, match_score, category_fit, availability_score, rating_score)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(generateId(), projectId, freelancer.id, matchScore, categoryFit, availabilityScore, ratingScore);
+    `).run(matchId, projectId, freelancer.id, matchScore, categoryFit, availabilityScore, ratingScore);
+    
+    matchesCreated++;
     
     // Create activity for freelancer
     db.prepare(`
       INSERT INTO activities (id, user_id, type, title, description, metadata)
       VALUES (?, ?, 'match', 'New Match Available', 'You have a new project match!', ?)
     `).run(generateId(), freelancer.id, JSON.stringify({ projectId, matchScore }));
+    
+    // Create real-time event for freelancer
+    db.prepare(`
+      INSERT INTO realtime_events (id, user_id, event_type, payload)
+      VALUES (?, ?, 'new_match', ?)
+    `).run(generateId(), freelancer.id, JSON.stringify({ matchId, projectId, matchScore }));
   }
+  
+  return { matchesCreated, freelancersAvailable: freelancers.length };
 }
 
 app.get('/matches', (c) => {
   const freelancerId = c.req.query('freelancerId');
   const projectId = c.req.query('projectId');
+  const buyerId = c.req.query('buyerId');
   const status = c.req.query('status');
   
   let query = `
     SELECT m.*, p.title as project_title, p.description as project_description, 
-           p.budget, p.category, u.name as buyer_name, u.avatar as buyer_avatar
+           p.budget, p.category, u.name as buyer_name, u.avatar as buyer_avatar,
+           fu.name as freelancer_name, fu.avatar as freelancer_avatar
     FROM matches m
     JOIN projects p ON m.project_id = p.id
     JOIN users u ON p.buyer_id = u.id
+    JOIN users fu ON m.freelancer_id = fu.id
     WHERE 1=1
   `;
   const params: any[] = [];
@@ -515,6 +538,12 @@ app.get('/matches', (c) => {
   if (projectId) {
     query += ' AND m.project_id = ?';
     params.push(projectId);
+  }
+  
+  // If buyer is requesting, hide declined matches (they shouldn't see who declined)
+  if (buyerId) {
+    query += ' AND p.buyer_id = ? AND m.status != ?';
+    params.push(buyerId, 'declined');
   }
   
   if (status) {
@@ -536,6 +565,7 @@ app.patch('/matches/:id', async (c) => {
     .run(status, id);
   
   const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(id) as any;
+  const project = db.prepare('SELECT buyer_id, title FROM projects WHERE id = ?').get(match.project_id) as any;
   
   // If accepted, update project
   if (status === 'accepted') {
@@ -547,11 +577,27 @@ app.patch('/matches/:id', async (c) => {
       .run('declined', match.project_id, id);
     
     // Create conversation
-    const project = db.prepare('SELECT buyer_id FROM projects WHERE id = ?').get(match.project_id) as any;
     db.prepare(`
       INSERT INTO conversations (id, project_id, participant_ids)
       VALUES (?, ?, ?)
     `).run(generateId(), match.project_id, JSON.stringify([project.buyer_id, match.freelancer_id]));
+    
+    // Create real-time event for buyer
+    db.prepare(`
+      INSERT INTO realtime_events (id, user_id, event_type, payload)
+      VALUES (?, ?, 'match_accepted', ?)
+    `).run(generateId(), project.buyer_id, JSON.stringify({ 
+      matchId: id, 
+      projectId: match.project_id, 
+      freelancerId: match.freelancer_id,
+      projectTitle: project.title 
+    }));
+    
+    // Create activity for buyer
+    db.prepare(`
+      INSERT INTO activities (id, user_id, type, title, description, metadata)
+      VALUES (?, ?, 'match', 'Freelancer Accepted', 'A freelancer has accepted your project!', ?)
+    `).run(generateId(), project.buyer_id, JSON.stringify({ projectId: match.project_id, matchId: id }));
   }
   
   return c.json(match);
@@ -656,6 +702,25 @@ app.post('/conversations/:id/messages', async (c) => {
   db.prepare('UPDATE conversations SET last_message_at = CURRENT_TIMESTAMP WHERE id = ?')
     .run(conversationId);
   
+  // Get conversation to find other participants
+  const conversation = db.prepare('SELECT participant_ids FROM conversations WHERE id = ?').get(conversationId) as any;
+  const participantIds = jsonParse<string[]>(conversation.participant_ids) || [];
+  
+  // Create real-time event for other participants
+  for (const participantId of participantIds) {
+    if (participantId !== senderId) {
+      db.prepare(`
+        INSERT INTO realtime_events (id, user_id, event_type, payload)
+        VALUES (?, ?, 'new_message', ?)
+      `).run(generateId(), participantId, JSON.stringify({ 
+        messageId: id, 
+        conversationId, 
+        senderId,
+        preview: content.substring(0, 50) 
+      }));
+    }
+  }
+  
   const message = db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
   return c.json(message);
 });
@@ -668,59 +733,175 @@ app.patch('/messages/:id/read', (c) => {
 
 // ============ REVIEW ROUTES ============
 
+// Check for inappropriate content in reviews
+function checkForInappropriateContent(feedback: string): { flagged: boolean; reason: string | null } {
+  const inappropriatePatterns = [
+    /\b(scam|fraud|cheat|steal|thief)\b/i,
+    /\b(hate|racist|sexist)\b/i,
+    /\b(threat|kill|harm|attack)\b/i,
+    /personal\s*(info|information|details)/i,
+    /\b(phone|email|address)\s*:?\s*[\d@]/i,
+  ];
+  
+  for (const pattern of inappropriatePatterns) {
+    if (pattern.test(feedback)) {
+      return { flagged: true, reason: 'Potentially inappropriate content detected' };
+    }
+  }
+  
+  // Flag extremely negative reviews for manual check
+  return { flagged: false, reason: null };
+}
+
 app.post('/reviews', async (c) => {
   const { projectId, reviewerId, revieweeId, overallRating, categories, feedback } = await c.req.json();
   
   const id = generateId();
   
+  // Check for inappropriate content
+  const contentCheck = checkForInappropriateContent(feedback || '');
+  const isFlagged = contentCheck.flagged || overallRating === 1;
+  const flagReason = contentCheck.reason || (overallRating === 1 ? 'Very low rating - manual review recommended' : null);
+  const status = isFlagged ? 'pending_moderation' : 'published';
+  
   db.prepare(`
     INSERT INTO reviews (id, project_id, reviewer_id, reviewee_id, overall_rating, 
                         communication_rating, quality_rating, timeliness_rating, 
-                        clarity_rating, payment_rating, feedback)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        clarity_rating, payment_rating, feedback, status, is_flagged, flag_reason)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     id, projectId, reviewerId, revieweeId, overallRating,
     categories?.communication, categories?.quality, categories?.timeliness,
-    categories?.clarity, categories?.payment, feedback
+    categories?.clarity, categories?.payment, feedback, status, isFlagged ? 1 : 0, flagReason
   );
   
-  // Update freelancer rating
-  const reviews = db.prepare(`
-    SELECT AVG(overall_rating) as avg_rating, COUNT(*) as count
-    FROM reviews WHERE reviewee_id = ?
-  `).get(revieweeId) as any;
-  
-  db.prepare(`
-    UPDATE freelancer_profiles SET rating = ?, total_reviews = ? WHERE user_id = ?
-  `).run(reviews.avg_rating, reviews.count, revieweeId);
-  
-  // Create activity
-  db.prepare(`
-    INSERT INTO activities (id, user_id, type, title, description, metadata)
-    VALUES (?, ?, 'rating', 'New Review Received', 'You received a new review!', ?)
-  `).run(generateId(), revieweeId, JSON.stringify({ rating: overallRating, projectId }));
+  // Only update ratings if review is published (not flagged)
+  if (!isFlagged) {
+    const reviews = db.prepare(`
+      SELECT AVG(overall_rating) as avg_rating, COUNT(*) as count
+      FROM reviews WHERE reviewee_id = ? AND status = 'published'
+    `).get(revieweeId) as any;
+    
+    db.prepare(`
+      UPDATE freelancer_profiles SET rating = ?, total_reviews = ? WHERE user_id = ?
+    `).run(reviews.avg_rating, reviews.count, revieweeId);
+    
+    // Create activity
+    db.prepare(`
+      INSERT INTO activities (id, user_id, type, title, description, metadata)
+      VALUES (?, ?, 'rating', 'New Review Received', 'You received a new review!', ?)
+    `).run(generateId(), revieweeId, JSON.stringify({ rating: overallRating, projectId }));
+    
+    // Create real-time event
+    db.prepare(`
+      INSERT INTO realtime_events (id, user_id, event_type, payload)
+      VALUES (?, ?, 'new_review', ?)
+    `).run(generateId(), revieweeId, JSON.stringify({ reviewId: id, rating: overallRating }));
+  }
   
   const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
-  return c.json(review);
+  return c.json({ ...review, flagged: isFlagged });
 });
 
 app.get('/reviews', (c) => {
   const userId = c.req.query('userId');
+  const status = c.req.query('status');
   
   if (!userId) {
     return c.json({ error: 'userId required' }, 400);
   }
   
-  const reviews = db.prepare(`
+  let query = `
     SELECT r.*, u.name as reviewer_name, u.avatar as reviewer_avatar, p.title as project_title
     FROM reviews r
     JOIN users u ON r.reviewer_id = u.id
     JOIN projects p ON r.project_id = p.id
     WHERE r.reviewee_id = ?
+  `;
+  const params: any[] = [userId];
+  
+  if (status) {
+    query += ' AND r.status = ?';
+    params.push(status);
+  } else {
+    // By default, only show published reviews
+    query += ' AND r.status = ?';
+    params.push('published');
+  }
+  
+  query += ' ORDER BY r.created_at DESC';
+  
+  const reviews = db.prepare(query).all(...params);
+  return c.json(reviews);
+});
+
+// ============ REVIEW MODERATION ROUTES ============
+
+app.get('/moderation/reviews', (c) => {
+  const reviews = db.prepare(`
+    SELECT r.*, 
+           reviewer.name as reviewer_name, reviewer.avatar as reviewer_avatar,
+           reviewee.name as reviewee_name, reviewee.avatar as reviewee_avatar,
+           p.title as project_title
+    FROM reviews r
+    JOIN users reviewer ON r.reviewer_id = reviewer.id
+    JOIN users reviewee ON r.reviewee_id = reviewee.id
+    JOIN projects p ON r.project_id = p.id
+    WHERE r.is_flagged = 1 OR r.status = 'pending_moderation'
     ORDER BY r.created_at DESC
-  `).all(userId);
+  `).all();
   
   return c.json(reviews);
+});
+
+app.patch('/moderation/reviews/:id', async (c) => {
+  const id = c.req.param('id');
+  const { action, moderationNotes, moderatorId } = await c.req.json();
+  
+  const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(id) as any;
+  
+  if (!review) {
+    return c.json({ error: 'Review not found' }, 404);
+  }
+  
+  if (action === 'approve') {
+    db.prepare(`
+      UPDATE reviews SET status = 'published', is_flagged = 0, moderation_notes = ?, 
+                        moderated_by = ?, moderated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(moderationNotes, moderatorId, id);
+    
+    // Now update the reviewee's rating
+    const reviews = db.prepare(`
+      SELECT AVG(overall_rating) as avg_rating, COUNT(*) as count
+      FROM reviews WHERE reviewee_id = ? AND status = 'published'
+    `).get(review.reviewee_id) as any;
+    
+    db.prepare(`
+      UPDATE freelancer_profiles SET rating = ?, total_reviews = ? WHERE user_id = ?
+    `).run(reviews.avg_rating, reviews.count, review.reviewee_id);
+    
+    // Create activity for reviewee
+    db.prepare(`
+      INSERT INTO activities (id, user_id, type, title, description, metadata)
+      VALUES (?, ?, 'rating', 'New Review Received', 'You received a new review!', ?)
+    `).run(generateId(), review.reviewee_id, JSON.stringify({ rating: review.overall_rating, projectId: review.project_id }));
+    
+  } else if (action === 'reject') {
+    db.prepare(`
+      UPDATE reviews SET status = 'rejected', moderation_notes = ?, 
+                        moderated_by = ?, moderated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(moderationNotes, moderatorId, id);
+    
+    // Notify reviewer that their review was rejected
+    db.prepare(`
+      INSERT INTO activities (id, user_id, type, title, description)
+      VALUES (?, ?, 'review_rejected', 'Review Not Published', 'Your review did not meet our community guidelines.')
+    `).run(generateId(), review.reviewer_id);
+  }
+  
+  return c.json({ success: true });
 });
 
 // ============ TRANSACTION ROUTES ============
@@ -844,6 +1025,17 @@ app.post('/payments/release', async (c) => {
     INSERT INTO activities (id, user_id, type, title, description, metadata)
     VALUES (?, ?, 'payment', 'Payment Received', 'You received a milestone payment!', ?)
   `).run(generateId(), freelancerId, JSON.stringify({ amount: amount - fee, milestoneId }));
+  
+  // Create real-time event for freelancer
+  db.prepare(`
+    INSERT INTO realtime_events (id, user_id, event_type, payload)
+    VALUES (?, ?, 'payment_released', ?)
+  `).run(generateId(), freelancerId, JSON.stringify({ 
+    transactionId, 
+    amount: amount - fee, 
+    milestoneId,
+    projectId: milestone.project_id 
+  }));
   
   return c.json({ success: true, transactionId });
 });
@@ -1005,6 +1197,154 @@ app.patch('/courses/progress/:id', async (c) => {
 // Health check
 app.get('/health', (c) => {
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============ SMART CATEGORIZATION (AI-POWERED) ============
+
+const categoryKeywords: Record<string, string[]> = {
+  'Web Development': ['website', 'web', 'react', 'vue', 'angular', 'frontend', 'backend', 'fullstack', 'html', 'css', 'javascript', 'typescript', 'node', 'express', 'nextjs', 'api', 'database', 'sql', 'mongodb', 'wordpress', 'shopify', 'ecommerce', 'landing page', 'responsive'],
+  'Mobile Development': ['app', 'mobile', 'ios', 'android', 'react native', 'flutter', 'swift', 'kotlin', 'iphone', 'smartphone', 'tablet', 'play store', 'app store'],
+  'UI/UX Design': ['design', 'ui', 'ux', 'user interface', 'user experience', 'wireframe', 'prototype', 'figma', 'sketch', 'adobe xd', 'mockup', 'usability', 'interaction'],
+  'Graphic Design': ['logo', 'brand', 'branding', 'graphic', 'illustration', 'poster', 'flyer', 'banner', 'business card', 'visual identity', 'photoshop', 'illustrator', 'vector'],
+  'Content Writing': ['content', 'blog', 'article', 'write', 'writing', 'copywriting', 'copy', 'seo content', 'technical writing', 'documentation', 'ebook', 'whitepaper', 'press release'],
+  'Digital Marketing': ['marketing', 'seo', 'ads', 'social media', 'facebook', 'instagram', 'google ads', 'ppc', 'email marketing', 'campaign', 'analytics', 'conversion', 'traffic', 'lead generation'],
+  'Video Production': ['video', 'animation', 'motion graphics', 'editing', 'youtube', 'explainer', 'promotional', 'after effects', 'premiere', 'cinematography'],
+  'Data Science': ['data', 'analytics', 'machine learning', 'ai', 'artificial intelligence', 'python', 'statistics', 'visualization', 'tableau', 'power bi', 'prediction', 'model'],
+};
+
+function suggestCategories(description: string): { category: string; confidence: number; keywords: string[] }[] {
+  const desc = description.toLowerCase();
+  const suggestions: { category: string; confidence: number; keywords: string[] }[] = [];
+  
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    const matchedKeywords = keywords.filter(kw => desc.includes(kw.toLowerCase()));
+    if (matchedKeywords.length > 0) {
+      const confidence = Math.min(matchedKeywords.length / 3, 1); // Max confidence at 3+ matches
+      suggestions.push({ category, confidence, keywords: matchedKeywords });
+    }
+  }
+  
+  // Sort by confidence
+  suggestions.sort((a, b) => b.confidence - a.confidence);
+  
+  return suggestions.slice(0, 3); // Return top 3 suggestions
+}
+
+app.post('/categorize', async (c) => {
+  const { description } = await c.req.json();
+  
+  if (!description) {
+    return c.json({ error: 'Description required' }, 400);
+  }
+  
+  const suggestions = suggestCategories(description);
+  
+  return c.json({
+    suggestions,
+    primaryCategory: suggestions[0]?.category || null,
+    confidence: suggestions[0]?.confidence || 0,
+  });
+});
+
+// ============ REAL-TIME EVENTS (SSE) ============
+
+app.get('/events/:userId', async (c) => {
+  const userId = c.req.param('userId');
+  
+  // Set headers for SSE
+  c.header('Content-Type', 'text/event-stream');
+  c.header('Cache-Control', 'no-cache');
+  c.header('Connection', 'keep-alive');
+  
+  // Get unread events
+  const events = db.prepare(`
+    SELECT * FROM realtime_events 
+    WHERE user_id = ? AND is_read = 0
+    ORDER BY created_at ASC
+  `).all(userId) as any[];
+  
+  // Mark events as read
+  if (events.length > 0) {
+    const eventIds = events.map(e => e.id);
+    db.prepare(`UPDATE realtime_events SET is_read = 1 WHERE id IN (${eventIds.map(() => '?').join(',')})`).run(...eventIds);
+  }
+  
+  // Return events as JSON (for polling approach)
+  return c.json(events.map(e => ({
+    ...e,
+    payload: jsonParse(e.payload),
+  })));
+});
+
+// Create a real-time event
+app.post('/events', async (c) => {
+  const { userId, eventType, payload } = await c.req.json();
+  
+  const id = generateId();
+  
+  db.prepare(`
+    INSERT INTO realtime_events (id, user_id, event_type, payload)
+    VALUES (?, ?, ?, ?)
+  `).run(id, userId, eventType, JSON.stringify(payload));
+  
+  return c.json({ success: true, eventId: id });
+});
+
+// ============ VIDEO CALL ROUTES ============
+
+app.post('/video/create-room', async (c) => {
+  const { projectId, createdBy, participantIds } = await c.req.json();
+  
+  const roomId = generateId();
+  const roomName = `fm-${projectId}-${Date.now()}`;
+  
+  // For now, create a simple room URL (in production, integrate with Daily.co API)
+  // Daily.co free tier allows creating rooms via their dashboard
+  const roomUrl = `https://freelancematch.daily.co/${roomName}`;
+  
+  db.prepare(`
+    INSERT INTO video_rooms (id, project_id, room_url, room_name, created_by)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(roomId, projectId, roomUrl, roomName, createdBy);
+  
+  // Notify participants
+  for (const participantId of participantIds) {
+    if (participantId !== createdBy) {
+      db.prepare(`
+        INSERT INTO realtime_events (id, user_id, event_type, payload)
+        VALUES (?, ?, 'video_call_invite', ?)
+      `).run(generateId(), participantId, JSON.stringify({ roomId, roomUrl, projectId }));
+      
+      db.prepare(`
+        INSERT INTO activities (id, user_id, type, title, description, metadata)
+        VALUES (?, ?, 'video_call', 'Video Call Started', 'You have been invited to a video call', ?)
+      `).run(generateId(), participantId, JSON.stringify({ roomId, roomUrl }));
+    }
+  }
+  
+  return c.json({ roomId, roomUrl, roomName });
+});
+
+app.get('/video/rooms/:projectId', (c) => {
+  const projectId = c.req.param('projectId');
+  
+  const rooms = db.prepare(`
+    SELECT * FROM video_rooms WHERE project_id = ? ORDER BY started_at DESC
+  `).all(projectId);
+  
+  return c.json(rooms);
+});
+
+app.patch('/video/rooms/:id/end', async (c) => {
+  const id = c.req.param('id');
+  const { recordingUrl } = await c.req.json();
+  
+  db.prepare(`
+    UPDATE video_rooms SET status = 'ended', ended_at = CURRENT_TIMESTAMP, recording_url = ?
+    WHERE id = ?
+  `).run(recordingUrl || null, id);
+  
+  return c.json({ success: true });
 });
 
 export const GET = handle(app);

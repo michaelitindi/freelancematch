@@ -148,10 +148,41 @@ db.exec(`
     payment_rating INTEGER,
     feedback TEXT,
     status TEXT DEFAULT 'published',
+    is_flagged INTEGER DEFAULT 0,
+    flag_reason TEXT,
+    moderation_notes TEXT,
+    moderated_by TEXT,
+    moderated_at TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (reviewer_id) REFERENCES users(id),
     FOREIGN KEY (reviewee_id) REFERENCES users(id)
+  );
+
+  -- Video Call Rooms
+  CREATE TABLE IF NOT EXISTS video_rooms (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    room_url TEXT NOT NULL,
+    room_name TEXT NOT NULL,
+    created_by TEXT NOT NULL,
+    status TEXT DEFAULT 'active',
+    recording_url TEXT,
+    started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    ended_at TEXT,
+    FOREIGN KEY (project_id) REFERENCES projects(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+  );
+
+  -- Real-time Events Queue
+  CREATE TABLE IF NOT EXISTS realtime_events (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
   );
 
   -- Transactions

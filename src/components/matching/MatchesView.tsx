@@ -122,11 +122,11 @@ export function MatchesView({ onNavigate }: MatchesViewProps) {
                         </Button>
                         <Button
                           variant="outline"
-                          className="flex-1"
+                          className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
                           onClick={() => declineMatch(match.id)}
                         >
                           <X className="h-4 w-4 mr-2" />
-                          Decline
+                          Not Interested
                         </Button>
                       </div>
                     </div>

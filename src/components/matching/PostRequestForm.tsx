@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Send, Lightbulb, DollarSign, CheckCircle2, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Send, Lightbulb, DollarSign, CheckCircle2, ArrowLeft, AlertCircle, Users, Sparkles, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,11 @@ import {
 import { useApp } from '@/contexts/AppContext';
 import { SERVICE_CATEGORIES } from '@/types';
 import { cn } from '@/lib/utils';
+
+interface MatchingResult {
+  matchesCreated: number;
+  freelancersAvailable: number;
+}
 
 interface PostRequestFormProps {
   onNavigate: (view: string) => void;
@@ -44,9 +49,45 @@ export function PostRequestForm({
   const [budget, setBudget] = useState(initialBudget);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [matchingResult, setMatchingResult] = useState<MatchingResult | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<{ category: string; confidence: number; keywords: string[] }[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
-  // Smart suggestions based on description
+  // Debounced AI-powered smart categorization
+  useEffect(() => {
+    if (description.length < 20) {
+      setAiSuggestions([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsLoadingSuggestions(true);
+      try {
+        const response = await fetch('/api/categorize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description }),
+        });
+        const data = await response.json();
+        if (data.suggestions) {
+          setAiSuggestions(data.suggestions);
+        }
+      } catch (error) {
+        console.error('Failed to get AI suggestions:', error);
+      }
+      setIsLoadingSuggestions(false);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [description]);
+
+  // Smart suggestions based on description (fallback)
   const getSuggestions = () => {
+    // Use AI suggestions if available
+    if (aiSuggestions.length > 0) {
+      return aiSuggestions.map(s => s.category).filter(s => s !== category);
+    }
+    
     const desc = description.toLowerCase();
     const suggestions: string[] = [];
     
@@ -86,37 +127,87 @@ export function PostRequestForm({
 
     setIsSubmitting(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    createMatchRequest({
-      buyerId: currentUser?.id || 'b1',
-      buyerName: currentUser?.name || 'Buyer',
-      buyerAvatar: currentUser?.avatar,
-      title: description.slice(0, 50),
-      category,
-      description,
-      budget: budget ? parseFloat(budget) : undefined,
-    });
+    try {
+      // Call API to create project and trigger matching
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          buyerId: currentUser?.id || 'b1',
+          title: description.slice(0, 50),
+          description,
+          category,
+          budget: budget ? parseFloat(budget) : 0,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.matchingResult) {
+        setMatchingResult(result.matchingResult);
+      }
+      
+      createMatchRequest({
+        buyerId: currentUser?.id || 'b1',
+        buyerName: currentUser?.name || 'Buyer',
+        buyerAvatar: currentUser?.avatar,
+        title: description.slice(0, 50),
+        category,
+        description,
+        budget: budget ? parseFloat(budget) : undefined,
+      });
+    } catch (error) {
+      console.error('Failed to create project:', error);
+    }
 
     setIsSubmitting(false);
     setIsSubmitted(true);
   };
 
   if (isSubmitted) {
+    const noFreelancersAvailable = matchingResult && matchingResult.freelancersAvailable === 0;
+    
     return (
       <div className="max-w-2xl mx-auto">
         <Card className="card-shadow">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="h-20 w-20 rounded-full bg-[#00B8A9]/10 flex items-center justify-center mb-6">
-              <CheckCircle2 className="h-10 w-10 text-[#00B8A9]" />
-            </div>
-            <h2 className="text-2xl font-bold font-display text-[#1A2B4A] mb-2">
-              Request Submitted!
-            </h2>
-            <p className="text-muted-foreground text-center max-w-md mb-6">
-              We&apos;re finding the perfect freelancer for your project. You&apos;ll receive a match notification soon.
-            </p>
+            {noFreelancersAvailable ? (
+              <>
+                <div className="h-20 w-20 rounded-full bg-amber-100 flex items-center justify-center mb-6">
+                  <Users className="h-10 w-10 text-amber-600" />
+                </div>
+                <h2 className="text-2xl font-bold font-display text-[#1A2B4A] mb-2">
+                  Request Submitted!
+                </h2>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 max-w-md">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-800">No freelancers available right now</p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        There are currently no freelancers online in the {category} category. 
+                        Your request has been saved and you&apos;ll be notified as soon as a freelancer becomes available.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="h-20 w-20 rounded-full bg-[#00B8A9]/10 flex items-center justify-center mb-6">
+                  <CheckCircle2 className="h-10 w-10 text-[#00B8A9]" />
+                </div>
+                <h2 className="text-2xl font-bold font-display text-[#1A2B4A] mb-2">
+                  Request Submitted!
+                </h2>
+                <p className="text-muted-foreground text-center max-w-md mb-6">
+                  {matchingResult && matchingResult.matchesCreated > 0 
+                    ? `We found ${matchingResult.matchesCreated} potential freelancer${matchingResult.matchesCreated > 1 ? 's' : ''} for your project. You'll receive match notifications soon.`
+                    : "We're finding the perfect freelancer for your project. You'll receive a match notification soon."
+                  }
+                </p>
+              </>
+            )}
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -125,6 +216,7 @@ export function PostRequestForm({
                   setCategory('');
                   setDescription('');
                   setBudget('');
+                  setMatchingResult(null);
                 }}
               >
                 Post Another Request
@@ -212,24 +304,51 @@ export function PostRequestForm({
             </div>
 
             {/* Smart Suggestions */}
-            {suggestions.length > 0 && (
+            {(suggestions.length > 0 || isLoadingSuggestions) && (
               <div className="p-4 bg-[#00B8A9]/5 rounded-lg border border-[#00B8A9]/20">
                 <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="h-4 w-4 text-[#00B8A9]" />
-                  <span className="text-sm font-medium">Suggested Categories</span>
+                  {isLoadingSuggestions ? (
+                    <Loader2 className="h-4 w-4 text-[#00B8A9] animate-spin" />
+                  ) : aiSuggestions.length > 0 ? (
+                    <Sparkles className="h-4 w-4 text-[#00B8A9]" />
+                  ) : (
+                    <Lightbulb className="h-4 w-4 text-[#00B8A9]" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {isLoadingSuggestions ? 'Analyzing your description...' : 
+                     aiSuggestions.length > 0 ? 'AI-Powered Suggestions' : 'Suggested Categories'}
+                  </span>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {suggestions.map((suggestion) => (
-                    <Badge
-                      key={suggestion}
-                      variant="secondary"
-                      className="cursor-pointer hover:bg-[#00B8A9]/20 transition-colors"
-                      onClick={() => setCategory(suggestion)}
-                    >
-                      {suggestion}
-                    </Badge>
-                  ))}
-                </div>
+                {!isLoadingSuggestions && (
+                  <div className="flex flex-wrap gap-2">
+                    {aiSuggestions.length > 0 ? (
+                      aiSuggestions.filter(s => s.category !== category).map((suggestion) => (
+                        <Badge
+                          key={suggestion.category}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-[#00B8A9]/20 transition-colors"
+                          onClick={() => setCategory(suggestion.category)}
+                        >
+                          {suggestion.category}
+                          <span className="ml-1 text-xs opacity-60">
+                            {Math.round(suggestion.confidence * 100)}%
+                          </span>
+                        </Badge>
+                      ))
+                    ) : (
+                      suggestions.map((suggestion) => (
+                        <Badge
+                          key={suggestion}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-[#00B8A9]/20 transition-colors"
+                          onClick={() => setCategory(suggestion)}
+                        >
+                          {suggestion}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
