@@ -799,8 +799,8 @@ app.post('/reviews', async (c) => {
     `).run(generateId(), revieweeId, JSON.stringify({ reviewId: id, rating: overallRating }));
   }
   
-  const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(id);
-  return c.json({ ...review, flagged: isFlagged });
+  const review = db.prepare('SELECT * FROM reviews WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+  return c.json({ ...(review || {}), flagged: isFlagged });
 });
 
 app.get('/reviews', (c) => {
