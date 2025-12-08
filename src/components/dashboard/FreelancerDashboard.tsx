@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -11,7 +11,8 @@ import {
   Zap,
   CheckCircle2,
   AlertTriangle,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
+import { useProjects, useTransactions, useCourses } from '@/hooks/useApi';
 import { cn } from '@/lib/utils';
 
 interface FreelancerDashboardProps {
@@ -27,11 +29,50 @@ interface FreelancerDashboardProps {
 
 export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
   const { currentUser, isOnline, pendingMatches, activities, simulateMatch } = useApp();
+  const { projects, loading: projectsLoading, fetchProjects } = useProjects();
+  const { transactions, summary, loading: transactionsLoading, fetchTransactions } = useTransactions();
+  const { courses, progress, loading: coursesLoading, fetchCourses, fetchProgress } = useCourses();
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchProjects();
+    fetchTransactions();
+    fetchCourses();
+    fetchProgress();
+  }, [fetchProjects, fetchTransactions, fetchCourses, fetchProgress]);
+
+  // Calculate real stats from API data
+  const totalRevenue = summary?.totalEarned || 0;
+  const activeProjects = projects.filter((p: any) => p.status === 'in_progress');
+  const completedProjects = projects.filter((p: any) => p.status === 'completed');
+  const completionRate = projects.length > 0 
+    ? Math.round((completedProjects.length / projects.length) * 100) 
+    : 0;
+  const avgRating = currentUser?.rating || 0;
+
+  // Calculate revenue by month from transactions
+  const revenueByMonth = (() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const now = new Date();
+    const monthData = months.map((month, index) => {
+      const monthIndex = (now.getMonth() - 5 + index + 12) % 12;
+      const monthTransactions = transactions.filter((t: any) => {
+        const txDate = new Date(t.created_at);
+        return txDate.getMonth() === monthIndex && t.type === 'payment';
+      });
+      const amount = monthTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      return { month, amount };
+    });
+    return monthData;
+  })();
+
+  // Get courses in progress
+  const coursesInProgress = progress.filter((p: any) => p.progress < 100);
 
   const stats = [
     {
       title: 'Total Revenue',
-      value: '$0',
+      value: `$${totalRevenue.toLocaleString()}`,
       change: '+0%',
       icon: DollarSign,
       color: 'text-[#00B8A9]',
@@ -39,7 +80,7 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
     },
     {
       title: 'Completion Rate',
-      value: '0%',
+      value: `${completionRate}%`,
       change: '+0%',
       icon: CheckCircle2,
       color: 'text-[#00B8A9]',
@@ -47,17 +88,17 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
     },
     {
       title: 'Average Rating',
-      value: '0.0',
+      value: avgRating.toFixed(1),
       change: '+0',
       icon: Star,
       color: 'text-[#F6A623]',
       bgColor: 'bg-[#F6A623]/10',
     },
     {
-      title: 'Response Time',
-      value: '0h',
-      change: '0h',
-      icon: Clock,
+      title: 'Active Projects',
+      value: activeProjects.length.toString(),
+      change: `${completedProjects.length} completed`,
+      icon: Briefcase,
       color: 'text-[#1A2B4A]',
       bgColor: 'bg-[#1A2B4A]/10',
     },
@@ -168,29 +209,19 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {(() => {
-                const revenueByMonth = [
-                  { month: 'Jan', amount: 0 },
-                  { month: 'Feb', amount: 0 },
-                  { month: 'Mar', amount: 0 },
-                  { month: 'Apr', amount: 0 },
-                  { month: 'May', amount: 0 },
-                  { month: 'Jun', amount: 0 },
-                ];
-                return revenueByMonth.map((item: { month: string; amount: number }, index: number) => {
-                  const maxAmount = Math.max(...revenueByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
-                  const height = (item.amount / maxAmount) * 100;
-                  return (
-                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                      <div 
-                        className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
-                        style={{ height: `${Math.max(height, 5)}%` }}
-                      />
-                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                    </div>
-                  );
-                });
-              })()}
+              {revenueByMonth.map((item: { month: string; amount: number }) => {
+                const maxAmount = Math.max(...revenueByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                const height = (item.amount / maxAmount) * 100;
+                return (
+                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                    <div 
+                      className="w-full bg-gradient-to-t from-[#00B8A9] to-[#00D4C4] rounded-t-lg transition-all hover:from-[#00A89A] hover:to-[#00C4B4]"
+                      style={{ height: `${Math.max(height, 5)}%` }}
+                    />
+                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -251,15 +282,37 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="font-display">Active Projects</CardTitle>
-              <Badge variant="secondary">0</Badge>
+              <Badge variant="secondary">{activeProjects.length}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No active projects yet</p>
-              <p className="text-sm">Projects will appear here when you get matched</p>
-            </div>
+            {projectsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-[#00B8A9]" />
+              </div>
+            ) : activeProjects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No active projects yet</p>
+                <p className="text-sm">Projects will appear here when you get matched</p>
+              </div>
+            ) : (
+              activeProjects.slice(0, 3).map((project: any) => (
+                <div
+                  key={project.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => onNavigate('workspace')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{project.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{project.category}</p>
+                  </div>
+                  <Badge variant="outline" className="border-[#00B8A9] text-[#00B8A9]">
+                    In Progress
+                  </Badge>
+                </div>
+              ))
+            )}
             <Button 
               variant="outline" 
               className="w-full"
@@ -326,10 +379,41 @@ export function FreelancerDashboard({ onNavigate }: FreelancerDashboardProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No courses in progress</p>
-            <p className="text-sm">Browse courses to start learning</p>
-          </div>
+          {coursesLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-[#00B8A9]" />
+            </div>
+          ) : coursesInProgress.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p>No courses in progress</p>
+              <p className="text-sm">Browse courses to start learning</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {coursesInProgress.slice(0, 3).map((courseProgress: any) => {
+                const course = courses.find((c: any) => c.id === courseProgress.course_id);
+                if (!course) return null;
+                return (
+                  <div
+                    key={courseProgress.course_id}
+                    className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                    onClick={() => onNavigate('courses')}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{course.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Progress value={courseProgress.progress || 0} className="h-1.5 flex-1" />
+                        <span className="text-xs text-muted-foreground font-mono">
+                          {Math.round(courseProgress.progress || 0)}%
+                        </span>
+                      </div>
+                    </div>
+                    <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

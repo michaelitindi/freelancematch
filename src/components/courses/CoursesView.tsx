@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, 
   Clock, 
@@ -10,7 +10,8 @@ import {
   Lock,
   ChevronRight,
   Search,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useCourses } from '@/hooks/useApi';
 import type { Course } from '@/types';
 
 export function CoursesView() {
@@ -33,8 +35,38 @@ export function CoursesView() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
-  const courses: Course[] = [];
-  const categories: string[] = [];
+  const { courses: apiCourses, progress, loading, fetchCourses, fetchProgress } = useCourses();
+
+  // Fetch courses on mount
+  useEffect(() => {
+    fetchCourses();
+    fetchProgress();
+  }, [fetchCourses, fetchProgress]);
+
+  // Transform API courses to match Course type with progress
+  const courses: Course[] = apiCourses.map((course: any) => {
+    const courseProgress = progress.find((p: any) => p.course_id === course.id);
+    const modules = course.modules ? JSON.parse(course.modules) : [];
+    return {
+      id: course.id,
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      difficulty: course.difficulty || 'beginner',
+      duration: course.duration || '2 hours',
+      thumbnail: course.thumbnail || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&q=80',
+      badge: course.badge || '📚',
+      modules: modules.map((m: any, index: number) => ({
+        id: m.id || `module-${index}`,
+        title: m.title || `Module ${index + 1}`,
+        duration: m.duration || '15 min',
+        completed: courseProgress ? index < (courseProgress.completed_modules || 0) : false,
+      })),
+    };
+  });
+
+  // Extract unique categories from courses
+  const categories: string[] = [...new Set(courses.map(c => c.category))];
 
   const filteredCourses = courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,6 +95,14 @@ export function CoursesView() {
         course={selectedCourse} 
         onBack={() => setSelectedCourse(null)} 
       />
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#00B8A9]" />
+      </div>
     );
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   DollarSign, 
   Briefcase, 
@@ -8,7 +8,8 @@ import {
   Users,
   ArrowUpRight,
   Plus,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useApp } from '@/contexts/AppContext';
+import { useProjects, useTransactions } from '@/hooks/useApi';
 import { cn } from '@/lib/utils';
 
 interface BuyerDashboardProps {
@@ -24,11 +26,50 @@ interface BuyerDashboardProps {
 
 export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
   const { currentUser, matchRequests, activities } = useApp();
+  const { projects, loading: projectsLoading, fetchProjects } = useProjects();
+  const { transactions, summary, loading: transactionsLoading, fetchTransactions } = useTransactions();
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchProjects();
+    fetchTransactions();
+  }, [fetchProjects, fetchTransactions]);
+
+  // Calculate real stats from API data
+  const totalSpent = summary?.totalSpent || 0;
+  const activeProjects = projects.filter((p: any) => p.status === 'in_progress');
+  const completedProjects = projects.filter((p: any) => p.status === 'completed');
+
+  // Calculate spending by month from transactions
+  const spendingByMonth = (() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    const now = new Date();
+    const monthData = months.map((month, index) => {
+      const monthIndex = (now.getMonth() - 5 + index + 12) % 12;
+      const monthTransactions = transactions.filter((t: any) => {
+        const txDate = new Date(t.created_at);
+        return txDate.getMonth() === monthIndex && t.type === 'payment';
+      });
+      const amount = monthTransactions.reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+      return { month, amount };
+    });
+    return monthData;
+  })();
+
+  // Calculate spending by category
+  const categoryBreakdown = (() => {
+    const categories: Record<string, number> = {};
+    projects.forEach((p: any) => {
+      const category = p.category || 'Other';
+      categories[category] = (categories[category] || 0) + (p.budget || 0);
+    });
+    return Object.entries(categories).map(([category, amount]) => ({ category, amount }));
+  })();
 
   const stats = [
     {
       title: 'Total Spent',
-      value: '$0',
+      value: `$${totalSpent.toLocaleString()}`,
       change: '+0%',
       icon: DollarSign,
       color: 'text-[#1A2B4A]',
@@ -36,16 +77,16 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
     },
     {
       title: 'Projects Completed',
-      value: '0',
-      change: '+0',
+      value: completedProjects.length.toString(),
+      change: `+${completedProjects.length}`,
       icon: CheckCircle2,
       color: 'text-[#00B8A9]',
       bgColor: 'bg-[#00B8A9]/10',
     },
     {
       title: 'Active Projects',
-      value: '0',
-      change: '0 in progress',
+      value: activeProjects.length.toString(),
+      change: `${activeProjects.length} in progress`,
       icon: Briefcase,
       color: 'text-[#F6A623]',
       bgColor: 'bg-[#F6A623]/10',
@@ -116,29 +157,19 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-64 flex items-end justify-between gap-2">
-              {(() => {
-                const spendingByMonth = [
-                  { month: 'Jan', amount: 0 },
-                  { month: 'Feb', amount: 0 },
-                  { month: 'Mar', amount: 0 },
-                  { month: 'Apr', amount: 0 },
-                  { month: 'May', amount: 0 },
-                  { month: 'Jun', amount: 0 },
-                ];
-                return spendingByMonth.map((item: { month: string; amount: number }) => {
-                  const maxAmount = Math.max(...spendingByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
-                  const height = (item.amount / maxAmount) * 100;
-                  return (
-                    <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
-                      <div 
-                        className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
-                        style={{ height: `${Math.max(height, 5)}%` }}
-                      />
-                      <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
-                    </div>
-                  );
-                });
-              })()}
+              {spendingByMonth.map((item: { month: string; amount: number }) => {
+                const maxAmount = Math.max(...spendingByMonth.map((r: { month: string; amount: number }) => r.amount), 1);
+                const height = (item.amount / maxAmount) * 100;
+                return (
+                  <div key={item.month} className="flex-1 flex flex-col items-center gap-2">
+                    <div 
+                      className="w-full bg-gradient-to-t from-[#1A2B4A] to-[#2A4B6A] rounded-t-lg transition-all hover:from-[#0A1B3A] hover:to-[#1A3B5A]"
+                      style={{ height: `${Math.max(height, 5)}%` }}
+                    />
+                    <span className="text-xs text-muted-foreground font-medium">{item.month}</span>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -149,15 +180,14 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
             <CardTitle className="font-display">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {(() => {
-              const categoryBreakdown = [
-                { category: 'Development', amount: 0 },
-                { category: 'Design', amount: 0 },
-                { category: 'Marketing', amount: 0 },
-              ];
-              const totalSpent = 1;
-              return categoryBreakdown.map((cat: { category: string; amount: number }) => {
-                const percentage = (cat.amount / totalSpent) * 100;
+            {categoryBreakdown.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">No spending data yet</p>
+              </div>
+            ) : (
+              categoryBreakdown.map((cat: { category: string; amount: number }) => {
+                const totalCategorySpent = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0) || 1;
+                const percentage = (cat.amount / totalCategorySpent) * 100;
                 return (
                   <div key={cat.category} className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
@@ -169,8 +199,8 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
                     <Progress value={percentage} className="h-2" />
                   </div>
                 );
-              });
-            })()}
+              })
+            )}
           </CardContent>
         </Card>
       </div>
@@ -182,15 +212,37 @@ export function BuyerDashboard({ onNavigate }: BuyerDashboardProps) {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="font-display">Active Projects</CardTitle>
-              <Badge variant="secondary">0</Badge>
+              <Badge variant="secondary">{activeProjects.length}</Badge>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="text-center py-8 text-muted-foreground">
-              <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>No active projects yet</p>
-              <p className="text-sm">Post a request to get started</p>
-            </div>
+            {projectsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-[#00B8A9]" />
+              </div>
+            ) : activeProjects.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>No active projects yet</p>
+                <p className="text-sm">Post a request to get started</p>
+              </div>
+            ) : (
+              activeProjects.slice(0, 3).map((project: any) => (
+                <div
+                  key={project.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                  onClick={() => onNavigate('workspace')}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{project.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{project.category}</p>
+                  </div>
+                  <Badge variant="outline" className="border-[#F6A623] text-[#F6A623]">
+                    In Progress
+                  </Badge>
+                </div>
+              ))
+            )}
             <Button 
               variant="outline" 
               className="w-full"

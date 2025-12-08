@@ -217,6 +217,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, currentRole]);
 
+  // Auto-refresh data when user logs in
+  useEffect(() => {
+    if (currentUser?.id) {
+      refreshActivities();
+      refreshMatches();
+    }
+  }, [currentUser?.id, refreshActivities, refreshMatches]);
+
   const switchRole = useCallback((role: UserRole) => {
     setCurrentRole(role);
     // Role switching now just changes the role, user stays the same

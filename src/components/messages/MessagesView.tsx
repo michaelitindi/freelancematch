@@ -9,7 +9,8 @@ import {
   MoreVertical,
   Search,
   Check,
-  CheckCheck
+  CheckCheck,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,27 +19,67 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApp } from '@/contexts/AppContext';
+import { useConversations } from '@/hooks/useApi';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/types';
 
 export function MessagesView() {
-  const { conversations, currentUser } = useApp();
-  const [selectedConversation, setSelectedConversation] = useState(conversations[0]?.id || '');
+  const { currentUser } = useApp();
+  const { conversations, loading, fetchConversations, sendMessage: sendApiMessage } = useConversations();
+  const [selectedConversation, setSelectedConversation] = useState('');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const selectedConvo = conversations.find(c => c.id === selectedConversation);
-  const otherParticipant = selectedConvo?.participants.find(p => p.id !== currentUser?.id);
+  // Fetch conversations on mount
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Set first conversation as selected when loaded
+  useEffect(() => {
+    if (conversations.length > 0 && !selectedConversation) {
+      setSelectedConversation(conversations[0]?.id || '');
+    }
+  }, [conversations, selectedConversation]);
+
+  const selectedConvo = conversations.find((c: any) => c.id === selectedConversation);
+  const otherParticipant = selectedConvo?.participants?.find((p: any) => p.id !== currentUser?.id);
+import { cn } from '@/lib/utils';
+import type { Message } from '@/types';
+
+export function MessagesView() {
+  const { currentUser } = useApp();
+  const { conversations, loading, fetchConversations, sendMessage: sendApiMessage } = useConversations();
+  const [selectedConversation, setSelectedConversation] = useState('');
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch conversations on mount
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Set first conversation as selected when loaded
+  useEffect(() => {
+    if (conversations.length > 0 && !selectedConversation) {
+      setSelectedConversation(conversations[0]?.id || '');
+    }
+  }, [conversations, selectedConversation]);
+
+  const selectedConvo = conversations.find((c: any) => c.id === selectedConversation);
+  const otherParticipant = selectedConvo?.participants?.find((p: any) => p.id !== currentUser?.id);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || !selectedConversation) return;
 
     const newMessage = {
       id: `msg${Date.now()}`,
@@ -52,11 +93,14 @@ export function MessagesView() {
 
     setMessages(prev => [...prev, newMessage]);
     setMessage('');
+    
+    // Send to API
+    await sendApiMessage(selectedConversation, message);
   };
 
-  const filteredConversations = conversations.filter(c => {
-    const other = c.participants.find(p => p.id !== currentUser?.id);
-    return other?.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredConversations = conversations.filter((c: any) => {
+    const other = c.participants?.find((p: any) => p.id !== currentUser?.id);
+    return other?.name?.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
   const formatTime = (date: Date) => {
@@ -80,6 +124,14 @@ export function MessagesView() {
     return messageDate.toLocaleDateString();
   };
 
+  if (loading) {
+    return (
+      <div className="h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#00B8A9]" />
+      </div>
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-8rem)] md:h-[calc(100vh-6rem)]">
       <Card className="h-full card-shadow overflow-hidden">
@@ -102,23 +154,28 @@ export function MessagesView() {
             </CardHeader>
             <ScrollArea className="flex-1">
               <div className="p-2">
-                {filteredConversations.map((convo) => {
-                  const other = convo.participants.find(p => p.id !== currentUser?.id);
-                  const isSelected = convo.id === selectedConversation;
-                  
-                  return (
-                    <button
-                      key={convo.id}
-                      onClick={() => setSelectedConversation(convo.id)}
-                      className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
-                        isSelected ? "bg-[#00B8A9]/10" : "hover:bg-muted/50"
-                      )}
-                    >
-                      <div className="relative">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={other?.avatar} />
-                          <AvatarFallback>{other?.name?.charAt(0)}</AvatarFallback>
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No conversations yet</p>
+                  </div>
+                ) : (
+                  filteredConversations.map((convo: any) => {
+                    const other = convo.participants?.find((p: any) => p.id !== currentUser?.id);
+                    const isSelected = convo.id === selectedConversation;
+                    
+                    return (
+                      <button
+                        key={convo.id}
+                        onClick={() => setSelectedConversation(convo.id)}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left",
+                          isSelected ? "bg-[#00B8A9]/10" : "hover:bg-muted/50"
+                        )}
+                      >
+                        <div className="relative">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src={other?.avatar} />
+                            <AvatarFallback>{other?.name?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         {convo.unreadCount > 0 && (
                           <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-[#FF6B6B] text-[10px] font-bold text-white flex items-center justify-center">
@@ -147,7 +204,8 @@ export function MessagesView() {
                       </div>
                     </button>
                   );
-                })}
+                })
+                )}
               </div>
             </ScrollArea>
           </div>
