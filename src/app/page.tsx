@@ -25,8 +25,10 @@ function AppContent() {
   const [showLanding, setShowLanding] = useState(true);
   const [showAuth, setShowAuth] = useState(false);
   const [showKYC, setShowKYC] = useState(false);
+  const [showPostRequest, setShowPostRequest] = useState(false);
   const [initialRole, setInitialRole] = useState<UserRole>('freelancer');
   const [initialProjectDescription, setInitialProjectDescription] = useState('');
+  const [pendingFormData, setPendingFormData] = useState<{category: string; description: string; budget: string} | null>(null);
   const { currentRole, switchRole, currentUser, isSessionChecked, logout } = useApp();
 
   // Check if user is already authenticated on mount
@@ -43,11 +45,16 @@ function AppContent() {
 
   const handleGetStarted = (role: UserRole, projectDescription?: string) => {
     setInitialRole(role);
-    if (projectDescription) {
+    if (role === 'buyer' && projectDescription) {
+      // For buyers with a project description, go directly to PostRequestForm
       setInitialProjectDescription(projectDescription);
+      setShowLanding(false);
+      setShowPostRequest(true);
+    } else {
+      // For freelancers or buyers without description, go to auth
+      setShowLanding(false);
+      setShowAuth(true);
     }
-    setShowLanding(false);
-    setShowAuth(true);
   };
 
   const handleLogin = () => {
@@ -65,10 +72,33 @@ function AppContent() {
   const handleAuthComplete = (role: UserRole) => {
     switchRole(role);
     setShowAuth(false);
-    // If buyer had entered a project description, navigate to post-request
-    if (initialProjectDescription && role === 'buyer') {
-      setCurrentView('post-request');
+    // If there's pending form data from PostRequestForm, go back to it
+    if (pendingFormData && role === 'buyer') {
+      setShowPostRequest(true);
+    } else if (initialProjectDescription && role === 'buyer') {
+      setShowPostRequest(true);
     }
+  };
+
+  // Handle when PostRequestForm needs auth
+  const handlePostRequestAuthRequired = (formData: {category: string; description: string; budget: string}) => {
+    setPendingFormData(formData);
+    setShowPostRequest(false);
+    setShowAuth(true);
+  };
+
+  // Handle when PostRequestForm is completed or cancelled
+  const handlePostRequestComplete = () => {
+    setShowPostRequest(false);
+    setPendingFormData(null);
+    setInitialProjectDescription('');
+  };
+
+  const handlePostRequestBack = () => {
+    setShowPostRequest(false);
+    setShowLanding(true);
+    setInitialProjectDescription('');
+    setPendingFormData(null);
   };
 
   const handleKYCComplete = () => {
@@ -87,6 +117,48 @@ function AppContent() {
   // Show landing page first
   if (showLanding && !currentUser) {
     return <LandingPage onGetStarted={handleGetStarted} onLogin={handleLogin} />;
+  }
+
+  // Show PostRequestForm for unauthenticated buyers
+  if (showPostRequest && !currentUser) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="container mx-auto px-4 py-8">
+          <PostRequestForm 
+            onNavigate={handlePostRequestComplete}
+            onAuthRequired={handlePostRequestAuthRequired}
+            onBack={handlePostRequestBack}
+            initialDescription={pendingFormData?.description || initialProjectDescription}
+            initialCategory={pendingFormData?.category}
+            initialBudget={pendingFormData?.budget}
+            isGuest={true}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Show PostRequestForm for authenticated buyers returning from auth
+  if (showPostRequest && currentUser && pendingFormData) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header onNavigate={handleNavigate} currentView="post-request" onLogout={handleLogout} />
+        <main className="container mx-auto px-4 py-8">
+          <PostRequestForm 
+            onNavigate={(view) => {
+              setShowPostRequest(false);
+              setPendingFormData(null);
+              setInitialProjectDescription('');
+              handleNavigate(view);
+            }}
+            initialDescription={pendingFormData.description}
+            initialCategory={pendingFormData.category}
+            initialBudget={pendingFormData.budget}
+            isGuest={false}
+          />
+        </main>
+      </div>
+    );
   }
 
   // Show auth page

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Send, Lightbulb, DollarSign, CheckCircle2 } from 'lucide-react';
+import { Send, Lightbulb, DollarSign, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,13 +21,27 @@ import { cn } from '@/lib/utils';
 
 interface PostRequestFormProps {
   onNavigate: (view: string) => void;
+  onAuthRequired?: (formData: {category: string; description: string; budget: string}) => void;
+  onBack?: () => void;
+  initialDescription?: string;
+  initialCategory?: string;
+  initialBudget?: string;
+  isGuest?: boolean;
 }
 
-export function PostRequestForm({ onNavigate }: PostRequestFormProps) {
+export function PostRequestForm({ 
+  onNavigate, 
+  onAuthRequired, 
+  onBack,
+  initialDescription = '',
+  initialCategory = '',
+  initialBudget = '',
+  isGuest = false 
+}: PostRequestFormProps) {
   const { currentUser, createMatchRequest } = useApp();
-  const [category, setCategory] = useState('');
-  const [description, setDescription] = useState('');
-  const [budget, setBudget] = useState('');
+  const [category, setCategory] = useState(initialCategory);
+  const [description, setDescription] = useState(initialDescription);
+  const [budget, setBudget] = useState(initialBudget);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
@@ -63,6 +77,12 @@ export function PostRequestForm({ onNavigate }: PostRequestFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!category || !description) return;
+
+    // If guest user, require auth before submitting
+    if (isGuest && onAuthRequired) {
+      onAuthRequired({ category, description, budget });
+      return;
+    }
 
     setIsSubmitting(true);
     
@@ -126,12 +146,27 @@ export function PostRequestForm({ onNavigate }: PostRequestFormProps) {
     <div className="max-w-2xl mx-auto space-y-8">
       {/* Header */}
       <div>
+        {isGuest && onBack && (
+          <Button 
+            variant="ghost" 
+            onClick={onBack}
+            className="mb-4 -ml-2 text-muted-foreground hover:text-[#1A2B4A]"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Button>
+        )}
         <h1 className="text-3xl font-bold font-display text-[#1A2B4A]">
           Post a Request
         </h1>
         <p className="text-muted-foreground mt-1">
           Describe your project and we&apos;ll match you with the perfect freelancer
         </p>
+        {isGuest && (
+          <p className="text-sm text-[#00B8A9] mt-2">
+            Fill out the details below. You&apos;ll create an account when you submit.
+          </p>
+        )}
       </div>
 
       {/* Form */}
@@ -231,7 +266,7 @@ export function PostRequestForm({ onNavigate }: PostRequestFormProps) {
               ) : (
                 <span className="flex items-center gap-2">
                   <Send className="h-4 w-4" />
-                  Submit Request
+                  {isGuest ? 'Continue & Create Account' : 'Submit Request'}
                 </span>
               )}
             </Button>
