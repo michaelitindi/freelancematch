@@ -1,0 +1,22 @@
+name = "freelancematch-api"
+main = "worker/index.ts"
+compatibility_date = "2024-12-09"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "freelancematch-db"
+database_id = "0aac5e59-ebdb-482b-97f1-def9920cf148"
+
+# R2 Storage (for Step 3)
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "freelancematch-files"
+
+# Environment variables
+[vars]
+NODE_ENV = "production"
+
+# Secrets (set with: wrangler secret put POLAR_ACCESS_TOKEN)
+# POLAR_ACCESS_TOKEN = "your-token"

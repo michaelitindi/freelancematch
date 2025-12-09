@@ -117,7 +117,7 @@ export function PostRequestForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!category || !description) return;
+    if (!category || !description || !budget) return;
 
     // If guest user, require auth before submitting
     if (isGuest && onAuthRequired) {
@@ -137,7 +137,7 @@ export function PostRequestForm({
           title: description.slice(0, 50),
           description,
           category,
-          budget: budget ? parseFloat(budget) : 0,
+          budget: parseFloat(budget),
         }),
       });
       
@@ -154,7 +154,7 @@ export function PostRequestForm({
         title: description.slice(0, 50),
         category,
         description,
-        budget: budget ? parseFloat(budget) : undefined,
+        budget: parseFloat(budget),
       });
     } catch (error) {
       console.error('Failed to create project:', error);
@@ -354,7 +354,7 @@ export function PostRequestForm({
 
             {/* Budget */}
             <div className="space-y-2">
-              <Label htmlFor="budget">Budget (Optional)</Label>
+              <Label htmlFor="budget">Budget <span className="text-red-500">*</span></Label>
               <div className="relative">
                 <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -364,10 +364,12 @@ export function PostRequestForm({
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   className="pl-9"
+                  required
+                  min="1"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Setting a budget helps freelancers understand your expectations
+                This is the amount you will pay the freelancer for this project
               </p>
             </div>
 
@@ -375,7 +377,7 @@ export function PostRequestForm({
             <Button
               type="submit"
               className="w-full h-12 bg-[#00B8A9] hover:bg-[#00A89A] text-white"
-              disabled={!category || !description || isSubmitting}
+              disabled={!category || !description || !budget || isSubmitting}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2">

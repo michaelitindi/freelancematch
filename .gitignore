@@ -50,3 +50,20 @@ node_modules/
 .git
 
 .github/
+
+# Local SQLite (now using Cloudflare D1)
+*.db
+*.db-shm
+*.db-wal
+
+# Wrangler
+.wrangler/
+.dev.vars
+
+# Backups
+.backups/
+
+# Test files
+test-*.txt
+test-*.jpg
+test-*.png

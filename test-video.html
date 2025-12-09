@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Jitsi Meeting</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        .result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px; }
+        a { color: #0066cc; text-decoration: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🎥 Test Jitsi Video Meeting</h1>
+    <button onclick="createMeeting()">Create Meeting Room</button>
+    <div id="result" class="result" style="display:none;"></div>
+
+    <script>
+        async function createMeeting() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+            
+            try {
+                const response = await fetch('https://freelancematch-api.michaelitindi.workers.dev/video/create-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectId: 'test-' + Date.now(),
+                        createdBy: 'test-user',
+                        participantIds: ['test-user', 'test-user-2'],
+                        provider: 'jitsi'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.roomUrl) {
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('result').innerHTML = `
+                        <h3>✅ Meeting Created!</h3>
+                        <p><strong>Room URL:</strong> <a href="${data.roomUrl}" target="_blank">${data.roomUrl}</a></p>
+                        <p><strong>Room ID:</strong> ${data.roomId}</p>
+                        <p><strong>Provider:</strong> ${data.provider}</p>
+                        <br>
+                        <button onclick="window.open('${data.roomUrl}', '_blank')">🚀 Join Meeting</button>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = '<p style="color:red;">Error: ' + JSON.stringify(data) + '</p>';
+                }
+            } catch (error) {
+                document.getElementById('result').style.display = 'block';
+                document.getElementById('result').innerHTML = '<p style="color:red;">Error: ' + error.message + '</p>';
+            }
+            
+            btn.disabled = false;
+            btn.textContent = 'Create Another Meeting';
+        }
+    </script>
+</body>
+</html>
