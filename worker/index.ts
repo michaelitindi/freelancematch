@@ -60,35 +60,55 @@ app.post('/auth/register', async (c) => {
   const db = c.get('db');
   const { email, password, name, role } = await c.req.json();
   
-  const id = generateId();
-  const passwordHash = hashPassword(password);
-  
   try {
-    await db.prepare(`
+    // Check if email already exists
+    const existingUser = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existingUser) {
+      return c.json({ success: false, error: 'Email already in use' }, 400);
+    }
+    
+    const id = generateId();
+    const passwordHash = hashPassword(password);
+    
+    // Insert user
+    const insertResult = await db.prepare(`
       INSERT INTO users (id, email, password_hash, name, role)
       VALUES (?, ?, ?, ?, ?)
     `).run(id, email, passwordHash, name, role || 'freelancer');
     
+    console.log('User insert result:', insertResult);
+    
     // Create profile based on role
     if (role === 'buyer') {
-      await db.prepare(`
+      const buyerResult = await db.prepare(`
         INSERT INTO buyer_profiles (id, user_id)
         VALUES (?, ?)
       `).run(generateId(), id);
+      console.log('Buyer profile insert result:', buyerResult);
     } else {
-      await db.prepare(`
+      const freelancerResult = await db.prepare(`
         INSERT INTO freelancer_profiles (id, user_id)
         VALUES (?, ?)
       `).run(generateId(), id);
+      console.log('Freelancer profile insert result:', freelancerResult);
     }
     
     // Create activity
-    await db.prepare(`
+    const activityResult = await db.prepare(`
       INSERT INTO activities (id, user_id, type, title, description)
       VALUES (?, ?, 'account_created', 'Account Created', 'Welcome to FreelanceMatch!')
     `).run(generateId(), id);
+    console.log('Activity insert result:', activityResult);
     
+    // Fetch the created user
     const user = await db.prepare('SELECT id, email, name, role, avatar, kyc_status FROM users WHERE id = ?').get(id) as any;
+    
+    if (!user) {
+      console.error('User not found after insert! ID:', id);
+      return c.json({ success: false, error: 'Failed to create user' }, 500);
+    }
+    
+    console.log('Created user:', user);
     
     // Generate JWT token
     const token = generateToken({
@@ -108,7 +128,8 @@ app.post('/auth/register', async (c) => {
     
     return c.json({ success: true, user, token });
   } catch (error: any) {
-    return c.json({ success: false, error: error.message }, 400);
+    console.error('Registration error:', error);
+    return c.json({ success: false, error: error.message || 'Registration failed' }, 400);
   }
 });
 
