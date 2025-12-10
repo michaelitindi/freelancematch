@@ -47,6 +47,10 @@ interface VideoCallModalProps {
   roomUrl?: string;
 }
 
+interface VideoRoomResponse {
+  roomUrl?: string;
+}
+
 export function VideoCallModal({
   isOpen,
   onClose,
@@ -87,7 +91,7 @@ export function VideoCallModal({
           participantIds: participants.map(p => p.id),
         }),
       });
-      const data = await response.json();
+      const data = await response.json() as VideoRoomResponse;
       if (data.roomUrl) {
         setRoomUrl(data.roomUrl);
       }

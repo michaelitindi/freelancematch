@@ -207,7 +207,7 @@ function AppContent() {
         return (
           <TransactionHistory
             transactions={[]}
-            userRole={currentRole}
+            userRole={currentRole === 'admin' ? 'buyer' : currentRole}
             totalEarnings={0}
             totalSpent={0}
             pendingAmount={0}
@@ -225,7 +225,7 @@ function AppContent() {
             milestones={[]}
             deliverables={[]}
             totalBudget={0}
-            currentUserRole={currentRole}
+            currentUserRole={currentRole === 'admin' ? 'buyer' : currentRole}
             onMessageClick={() => handleNavigate('messages')}
             onVideoCallClick={() => {}}
           />

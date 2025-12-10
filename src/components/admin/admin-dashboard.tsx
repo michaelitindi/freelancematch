@@ -12,9 +12,15 @@ export function AdminDashboard() {
   const [flaggedReviews, setFlaggedReviews] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/api/admin/stats').then(r => r.json()).then(setStats);
-    fetch('/api/admin/kyc/pending').then(r => r.json()).then(setPendingKyc);
-    fetch('/api/admin/reviews/flagged').then(r => r.json()).then(setFlaggedReviews);
+    fetch('/api/admin/stats')
+      .then(r => r.json() as Promise<any>)
+      .then(data => setStats(data));
+    fetch('/api/admin/kyc/pending')
+      .then(r => r.json() as Promise<any[]>)
+      .then(data => setPendingKyc(data));
+    fetch('/api/admin/reviews/flagged')
+      .then(r => r.json() as Promise<any[]>)
+      .then(data => setFlaggedReviews(data));
   }, []);
 
   const approveKyc = async (userId: string) => {
