@@ -68,7 +68,7 @@ export function PostRequestForm({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ description }),
         });
-        const data = await response.json();
+        const data = await response.json() as { suggestions?: { category: string; confidence: number; keywords: string[] }[] };
         if (data.suggestions) {
           setAiSuggestions(data.suggestions);
         }
@@ -141,7 +141,7 @@ export function PostRequestForm({
         }),
       });
       
-      const result = await response.json();
+      const result = await response.json() as { matchingResult?: MatchingResult };
       
       if (result.matchingResult) {
         setMatchingResult(result.matchingResult);

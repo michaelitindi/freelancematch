@@ -377,7 +377,7 @@ app.post('/projects', async (c) => {
   `).run(generateId(), buyerId, title, JSON.stringify({ projectId, budget }));
   
   // Trigger matching algorithm
-  const matchingResult = await triggerMatching(projectId, category);
+  const matchingResult = await triggerMatching(db, projectId, category);
   
   const project = await db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId);
   return c.json({ 
@@ -467,7 +467,7 @@ app.patch('/projects/:id', async (c) => {
 
 // ============ MATCHING ROUTES ============
 
-async function triggerMatching(projectId: string, category: string): Promise<{ matchesCreated: number; freelancersAvailable: number }> {
+async function triggerMatching(db: ReturnType<typeof createDBWrapper>, projectId: string, category: string): Promise<{ matchesCreated: number; freelancersAvailable: number }> {
   // Get online freelancers in the category
   const freelancers = await db.prepare(`
     SELECT u.id, u.is_online, fp.categories, fp.rating, fp.total_jobs, fp.jobs_completed

@@ -33,7 +33,7 @@ export function FileUploader({ endpoint, onUpload, additionalData, accept }: Fil
         body: formData,
       });
 
-      const result = await response.json();
+      const result = await response.json() as { key: string; url: string };
       if (response.ok) {
         onUpload(result);
         setFile(null);

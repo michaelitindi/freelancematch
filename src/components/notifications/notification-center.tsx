@@ -26,7 +26,7 @@ export function NotificationCenter({ userId }: { userId: string }) {
 
   const fetchNotifications = async () => {
     const response = await fetch(`/api/events/${userId}`);
-    const events = await response.json();
+    const events = await response.json() as any[];
     
     const notifs = events.map((e: any) => ({
       id: e.id,

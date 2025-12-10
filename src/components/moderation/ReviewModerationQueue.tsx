@@ -62,7 +62,7 @@ export function ReviewModerationQueue({ moderatorId }: ReviewModerationQueueProp
     setIsLoading(true);
     try {
       const response = await fetch('/api/moderation/reviews');
-      const data = await response.json();
+      const data = await response.json() as FlaggedReview[];
       setReviews(data);
     } catch (error) {
       console.error('Failed to fetch flagged reviews:', error);
