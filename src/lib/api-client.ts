@@ -1,4 +1,5 @@
-const API_BASE = '/api';
+// Use environment variable or default to local worker
+const API_BASE = process.env.NEXT_PUBLIC_API_URL 
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${endpoint}`, {
