@@ -18,7 +18,13 @@ type Bindings = {
 
 const app = new Hono<{ Variables: Variables; Bindings: Bindings }>();
 
-app.use('*', cors({ origin: '*', credentials: true }));
+app.use('*', cors({ 
+  origin: (origin) => origin || '*', // Allow the requesting origin
+  credentials: true,
+  allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Set-Cookie'],
+}));
 
 const COOKIE_NAME = 'fm_session';
 
