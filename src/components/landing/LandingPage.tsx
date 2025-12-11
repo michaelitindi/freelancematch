@@ -361,7 +361,7 @@ export function LandingPage({ onGetStarted, onLogin }: LandingPageProps) {
                   <Button
                     size="lg"
                     variant="outline"
-                    className="border-white text-white hover:bg-white/10 px-8 h-14 text-lg"
+                    className="border-2 border-white text-white hover:bg-white hover:text-[#00B8A9] px-8 h-14 text-lg bg-transparent"
                     onClick={() => onGetStarted('freelancer')}
                   >
                     <User className="h-5 w-5 mr-2" />

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Zap, ArrowRight, Briefcase, User, CheckCircle, Loader2 } from 'lucide-react';
+import { Zap, ArrowRight, ArrowLeft, Briefcase, User, CheckCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -91,6 +91,16 @@ export function AuthPage({ onComplete }: AuthPageProps) {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       {/* Background decoration */}
       <div className="absolute inset-0 bg-noise pointer-events-none" />
+      
+      {/* Back to Home Button */}
+      <Button
+        variant="ghost"
+        className="absolute top-4 left-4 text-muted-foreground hover:text-[#1A2B4A]"
+        onClick={() => window.location.href = '/'}
+      >
+        <ArrowLeft className="h-4 w-4 mr-2" />
+        Back to Home
+      </Button>
       
       {/* Logo */}
       <div className="flex items-center gap-2 mb-8">
